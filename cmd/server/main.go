@@ -4,12 +4,12 @@ import (
 	"context"
 	"log"
 	"net/http"
-
 	"sup-anapa/internal/config"
 	"sup-anapa/internal/handlers"
 	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -46,7 +46,7 @@ func main() {
 
 	// Инициализация handlers
 	handlers.Init(cfg.SessionSecret, authService)
-	handlers.SetRepositories(bookingRepo, instructorRepo)
+	handlers.SetRepositories(bookingRepo, instructorRepo, slotRepo)
 
 	// Инициализация middleware
 	middleware.InitAuth(handlers.GetStore())
@@ -73,6 +73,10 @@ func main() {
 	r.Get("/booking", handlers.BookingPage)
 	r.Get("/instructors", handlers.InstructorsPage)
 	r.Post("/booking", handlers.CreateBooking)
+
+	// Public API (no auth required)
+	r.Get("/api/instructors", instructorHandler.List)
+	r.Get("/api/slots", slotHandler.List)
 
 	// Admin routes
 	r.Route("/admin", func(r chi.Router) {
@@ -107,10 +111,25 @@ func main() {
 
 			r.Route("/api/bookings", func(r chi.Router) {
 				r.Get("/", bookingHandler.List)
+				r.Get("/{id}", bookingHandler.Get)
 				r.Put("/{id}/status", bookingHandler.UpdateStatus)
 			})
 		})
 	})
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			ctx := context.Background()
+			n, err := slotRepo.ExpireHolds(ctx)
+			if err != nil {
+				log.Printf("Error expiring slot holds: %v", err)
+			} else if n > 0 {
+				log.Printf("Expired %d pending slot holds", n)
+			}
+		}
+	}()
 
 	addr := ":" + cfg.Port
 	log.Printf("✓ Server starting on %s", addr)

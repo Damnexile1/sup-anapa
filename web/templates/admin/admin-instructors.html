@@ -88,15 +88,14 @@
     }
     
     function editInstructor(id) {
-        // Получить данные инструктора
-        fetch(`/admin/api/instructors/${id}`)
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('edit-id').value = data.id;
-                document.getElementById('edit-name').value = data.name;
-                document.getElementById('edit-phone').value = data.phone;
-                document.getElementById('edit-description').value = data.description;
-                document.getElementById('edit-photo').value = data.photo || '';
+        fetch('/admin/api/instructors/' + id)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                document.getElementById('edit-id').value = data.ID;
+                document.getElementById('edit-name').value = data.Name;
+                document.getElementById('edit-phone').value = data.Phone || '';
+                document.getElementById('edit-description').value = data.Description || '';
+                document.getElementById('edit-photo').value = data.Photo || '';
                 document.getElementById('edit-modal').classList.remove('hidden');
             });
     }
@@ -105,28 +104,26 @@
         document.getElementById('edit-modal').classList.add('hidden');
     }
     
-    // Обработка отправки формы редактирования
     document.getElementById('edit-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const id = document.getElementById('edit-id').value;
-        const formData = new FormData(this);
-        const data = {
+        var id = document.getElementById('edit-id').value;
+        var formData = new FormData(this);
+        var data = {
             name: formData.get('name'),
             phone: formData.get('phone'),
             description: formData.get('description'),
             photo: formData.get('photo_url')
         };
         
-        fetch(`/admin/api/instructors/${id}`, {
+        fetch('/admin/api/instructors/' + id, {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
             body: JSON.stringify(data)
         })
-        .then(res => res.json())
-        .then(() => {
+        .then(function(res) { return res.text(); })
+        .then(function(html) {
+            document.getElementById('instructors-list').innerHTML = html;
             hideEditModal();
-            // Обновить список
-            htmx.trigger('#instructors-list', 'load');
         });
     });
 </script>

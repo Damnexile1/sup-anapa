@@ -172,9 +172,9 @@
     // Обработка отправки формы редактирования
     document.getElementById('edit-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const id = document.getElementById('edit-id').value;
-        const formData = new FormData(this);
-        const data = {
+        var id = document.getElementById('edit-id').value;
+        var formData = new FormData(this);
+        var data = {
             date: formData.get('date'),
             start_time: formData.get('start_time'),
             end_time: formData.get('end_time'),
@@ -183,16 +183,15 @@
             instructor_id: parseInt(formData.get('instructor_id'))
         };
         
-        fetch(`/admin/api/slots/${id}`, {
+        fetch('/admin/api/slots/' + id, {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
             body: JSON.stringify(data)
         })
-        .then(res => res.json())
-        .then(() => {
+        .then(function(res) { return res.text(); })
+        .then(function(html) {
+            document.getElementById('slots-table-body').innerHTML = html;
             hideEditModal();
-            // Обновить список
-            htmx.trigger('#slots-table-body', 'load');
         });
     });
 </script>

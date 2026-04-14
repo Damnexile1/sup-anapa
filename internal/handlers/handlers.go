@@ -8,6 +8,7 @@ import (
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
+	"time"
 
 	"github.com/gorilla/sessions"
 )
@@ -17,6 +18,7 @@ var (
 	authSvc        *services.AuthService
 	bookingRepo    *repository.BookingRepository
 	instructorRepo *repository.InstructorRepository
+	slotRepo       *repository.SlotRepository
 )
 
 func Init(sessionSecret string, authService *services.AuthService) {
@@ -24,9 +26,10 @@ func Init(sessionSecret string, authService *services.AuthService) {
 	authSvc = authService
 }
 
-func SetRepositories(booking *repository.BookingRepository, instructor *repository.InstructorRepository) {
+func SetRepositories(booking *repository.BookingRepository, instructor *repository.InstructorRepository, slot *repository.SlotRepository) {
 	bookingRepo = booking
 	instructorRepo = instructor
+	slotRepo = slot
 }
 
 func GetStore() *sessions.CookieStore {
@@ -100,7 +103,6 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация
 	if bookingData.ClientName == "" {
 		http.Error(w, "Имя клиента обязательно", http.StatusBadRequest)
 		return
@@ -114,7 +116,23 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Создать бронирование
+	slot, err := slotRepo.GetByIDWithLock(r.Context(), bookingData.SlotID)
+	if err != nil {
+		http.Error(w, "Слот не найден", http.StatusNotFound)
+		return
+	}
+	if slot.Status != "available" {
+		http.Error(w, "Слот уже занят или недоступен", http.StatusConflict)
+		return
+	}
+
+	holdExpires := time.Now().Add(20 * time.Minute)
+	if err := slotRepo.SetPending(r.Context(), bookingData.SlotID, holdExpires); err != nil {
+		log.Printf("Error setting slot pending: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	booking := &models.Booking{
 		SlotID:      bookingData.SlotID,
 		ClientName:  bookingData.ClientName,
@@ -125,14 +143,17 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := bookingRepo.Create(r.Context(), booking); err != nil {
+		slotRepo.SetAvailable(r.Context(), bookingData.SlotID)
 		log.Printf("Error creating booking: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	response := map[string]interface{}{
-		"ID":     booking.ID,
-		"status": booking.Status,
+		"ID":           booking.ID,
+		"status":       booking.Status,
+		"hold_expires": holdExpires.Format(time.RFC3339),
+		"hold_minutes": 20,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -41,7 +41,45 @@
     </table>
 </div>
 
+<!-- Модальное окно для подробной информации о бронировании -->
+<div id="booking-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-semibold">Информация о бронировании #<span id="booking-id-display"></span></h2>
+            <button onclick="closeBookingModal()" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="booking-details" class="space-y-4">
+            <!-- Детали будут загружены сюда -->
+        </div>
+        <div class="mt-6 flex gap-2">
+            <button onclick="updateBookingStatusModal('confirmed')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                Подтвердить
+            </button>
+            <button onclick="updateBookingStatusModal('cancelled')" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+                Отменить
+            </button>
+            <button onclick="closeBookingModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">
+                Закрыть
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+    
     function filterBookings(status) {
         // Обновить активную кнопку
         document.querySelectorAll('[id^="filter-"]').forEach(btn => {
@@ -50,7 +88,7 @@
         document.getElementById('filter-' + status).className = 'px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-semibold';
         
         // Загрузить отфильтрованные бронирования
-        const url = status === 'all' ? '/admin/api/bookings' : `/admin/api/bookings?status=${status}`;
+        var url = status === 'all' ? '/admin/api/bookings' : '/admin/api/bookings?status=' + status;
         fetch(url, {
             headers: {'HX-Request': 'true'}
         })
@@ -61,14 +99,84 @@
     }
     
     function updateBookingStatus(id, status) {
-        fetch(`/admin/api/bookings/${id}/status`, {
+        fetch('/admin/api/bookings/' + id + '/status', {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
             body: JSON.stringify({status: status})
         })
-        .then(res => res.text())
-        .then(html => {
+        .then(function(res) { return res.text(); })
+        .then(function(html) {
             document.getElementById('bookings-table-body').innerHTML = html;
+        });
+    }
+
+    // Показать детали бронирования
+    function showBookingDetails(id) {
+        fetch(`/admin/api/bookings/${id}`)
+            .then(res => res.json())
+            .then(booking => {
+                document.getElementById('booking-id-display').textContent = booking.ID;
+                document.getElementById('booking-details').innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold text-gray-700">Имя клиента</p>
+                            <p class="text-gray-900">` + escapeHtml(booking.ClientName || 'Не указано') + `</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-700">Телефон</p>
+                            <p class="text-gray-900">` + escapeHtml(booking.ClientPhone || 'Не указано') + `</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-700">Email</p>
+                            <p class="text-gray-900">` + escapeHtml(booking.ClientEmail || 'Не указано') + `</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-700">Количество человек</p>
+                            <p class="text-gray-900">` + (booking.PeopleCount || '1') + `</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-700">Статус</p>
+                            <p class="text-gray-900">
+                                <span class="px-2 py-1 rounded text-xs font-semibold ` + ( 
+                                    booking.Status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                                    booking.Status === 'cancelled' ? 'bg-red-100 text-red-800' : 
+                                    'bg-yellow-100 text-yellow-800'
+                                ) + `">` + getStatusText(booking.Status) + `</span>
+                            </p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-700">Дата создания</p>
+                            <p class="text-gray-900">` + new Date(booking.CreatedAt).toLocaleString() + `</p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('booking-modal').classList.remove('hidden');
+            });
+    }
+    
+    function getStatusText(status) {
+        switch(status) {
+            case 'confirmed': return 'Подтверждено';
+            case 'cancelled': return 'Отменено';
+            default: return 'Ожидает';
+        }
+    }
+    
+    function closeBookingModal() {
+        document.getElementById('booking-modal').classList.add('hidden');
+    }
+    
+    function updateBookingStatusModal(newStatus) {
+        var bookingId = document.getElementById('booking-id-display').textContent;
+        fetch('/admin/api/bookings/' + bookingId + '/status', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
+            body: JSON.stringify({status: newStatus})
+        })
+        .then(function(res) { return res.text(); })
+        .then(function(html) {
+            document.getElementById('bookings-table-body').innerHTML = html;
+            closeBookingModal();
         });
     }
 </script>

@@ -88,6 +88,9 @@ func (h *BookingHandler) renderBookingsList(w http.ResponseWriter, bookings []*m
 			</td>
 			<td class="px-6 py-4">
 				<div class="flex gap-2">
+					<button onclick="showBookingDetails(%d)" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+						Детали
+					</button>
 					<button onclick="updateBookingStatus(%d, 'confirmed')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
 						Подтвердить
 					</button>
@@ -96,7 +99,7 @@ func (h *BookingHandler) renderBookingsList(w http.ResponseWriter, bookings []*m
 					</button>
 				</div>
 			</td>
-		</tr>`, booking.ID, booking.ClientName, booking.ClientPhone, slotInfo, booking.PeopleCount, statusClass, statusText, booking.ID, booking.ID)
+		</tr>`, booking.ID, booking.ClientName, booking.ClientPhone, slotInfo, booking.PeopleCount, statusClass, statusText, booking.ID, booking.ID, booking.ID)
 	}
 }
 
@@ -116,19 +119,53 @@ func (h *BookingHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	booking, err := h.repo.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
 	if err := h.repo.UpdateStatus(r.Context(), id, data.Status); err != nil {
 		log.Printf("Error updating booking status: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Вернуть обновленный список
-	bookings, err := h.repo.GetAll(r.Context())
-	if err != nil {
-		log.Printf("Error getting bookings: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if data.Status == "confirmed" {
+		h.slotRepo.SetBooked(r.Context(), booking.SlotID)
+	} else if data.Status == "cancelled" {
+		h.slotRepo.SetAvailable(r.Context(), booking.SlotID)
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		bookings, err := h.repo.GetAll(r.Context())
+		if err != nil {
+			log.Printf("Error getting bookings: %v", err)
+			return
+		}
+		h.renderBookingsList(w, bookings)
 		return
 	}
 
-	h.renderBookingsList(w, bookings)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": data.Status})
+}
+
+func (h *BookingHandler) Get(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	booking, err := h.repo.GetByID(r.Context(), id)
+	if err != nil {
+		log.Printf("Error getting booking: %v", err)
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(booking)
 }

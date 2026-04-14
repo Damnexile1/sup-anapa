@@ -17,11 +17,9 @@
                 <a href="/instructors" class="hover:underline">Инструкторы</a>
                 <a href="/booking" class="hover:underline">Бронирование</a>
                 {{if .Username}}
-                <a href="/admin" class="hover:underline">Админка</a>
+                <a href="/admin" class="hover:underline font-semibold">Админка</a>
                 <span class="text-blue-200">{{.Username}}</span>
                 <a href="/admin/logout" class="hover:underline">Выход</a>
-                {{else}}
-                <a href="/admin/login" class="hover:underline">Вход</a>
                 {{end}}
             </div>
         </div>

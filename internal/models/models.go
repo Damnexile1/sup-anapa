@@ -13,15 +13,17 @@ type Instructor struct {
 }
 
 type Slot struct {
-	ID           int       `db:"id"`
-	Date         time.Time `db:"date"`
-	StartTime    string    `db:"start_time"`
-	EndTime      string    `db:"end_time"`
-	Price        int       `db:"price"`
-	MaxPeople    int       `db:"max_people"`
-	InstructorID int       `db:"instructor_id"`
-	CreatedAt    time.Time `db:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at"`
+	ID            int        `db:"id"`
+	Date          time.Time  `db:"date"`
+	StartTime     string     `db:"start_time"`
+	EndTime       string     `db:"end_time"`
+	Price         int        `db:"price"`
+	MaxPeople     int        `db:"max_people"`
+	InstructorID  int        `db:"instructor_id"`
+	Status        string     `db:"status"`
+	HoldExpiresAt *time.Time `db:"hold_expires_at"`
+	CreatedAt     time.Time  `db:"created_at"`
+	UpdatedAt     time.Time  `db:"updated_at"`
 }
 
 type Booking struct {
