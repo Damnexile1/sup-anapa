@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sup-anapa-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sup_anapa
+    networks:
+      - sup-anapa-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: sup-anapa-app
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sup_anapa?sslmode=disable
+      WEATHER_API_KEY: ${WEATHER_API_KEY}
+      VK_BOT_TOKEN: ${VK_BOT_TOKEN}
+      SESSION_SECRET: ${SESSION_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sup-anapa-network
+    volumes:
+      - ./web:/app/web
+      - ./migrations:/app/migrations
+    restart: unless-stopped
+
+networks:
+  sup-anapa-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

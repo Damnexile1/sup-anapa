@@ -1,0 +1,75 @@
+{{define "title"}}Бронирования - SUP Anapa{{end}}
+
+{{define "content"}}
+<div class="mb-8">
+    <h1 class="text-4xl font-bold text-gray-800">Бронирования</h1>
+</div>
+
+<div class="mb-6 flex gap-4">
+    <button onclick="filterBookings('all')" id="filter-all" class="px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-semibold">
+        Все
+    </button>
+    <button onclick="filterBookings('pending')" id="filter-pending" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold">
+        Ожидают
+    </button>
+    <button onclick="filterBookings('confirmed')" id="filter-confirmed" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold">
+        Подтверждены
+    </button>
+    <button onclick="filterBookings('cancelled')" id="filter-cancelled" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold">
+        Отменены
+    </button>
+</div>
+
+<div class="bg-white rounded-lg shadow-lg overflow-hidden">
+    <table class="min-w-full">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Клиент</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Телефон</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Слот</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Человек</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Действия</th>
+            </tr>
+        </thead>
+        <tbody id="bookings-table-body" hx-get="/admin/api/bookings" hx-trigger="load" hx-swap="innerHTML" class="divide-y divide-gray-200">
+            <tr>
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">Загрузка...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function filterBookings(status) {
+        // Обновить активную кнопку
+        document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+            btn.className = 'px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold';
+        });
+        document.getElementById('filter-' + status).className = 'px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-semibold';
+        
+        // Загрузить отфильтрованные бронирования
+        const url = status === 'all' ? '/admin/api/bookings' : `/admin/api/bookings?status=${status}`;
+        fetch(url, {
+            headers: {'HX-Request': 'true'}
+        })
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById('bookings-table-body').innerHTML = html;
+        });
+    }
+    
+    function updateBookingStatus(id, status) {
+        fetch(`/admin/api/bookings/${id}/status`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: status})
+        })
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById('bookings-table-body').innerHTML = html;
+        });
+    }
+</script>
+{{end}}

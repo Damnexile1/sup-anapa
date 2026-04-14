@@ -1,0 +1,133 @@
+{{define "title"}}Инструкторы - SUP Anapa{{end}}
+
+{{define "content"}}
+<div class="mb-8 flex justify-between items-center">
+    <h1 class="text-4xl font-bold text-gray-800">Инструкторы</h1>
+    <button onclick="showAddForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+        + Добавить инструктора
+    </button>
+</div>
+
+<div id="add-form" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+    <h2 class="text-2xl font-semibold mb-4">Новый инструктор</h2>
+    <form hx-post="/admin/api/instructors" hx-target="#instructors-list" hx-swap="innerHTML" class="space-y-4" hx-on::after-request="if(event.detail.successful) hideAddForm()">
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Имя</label>
+            <input type="text" name="name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Телефон</label>
+            <input type="tel" name="phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Описание</label>
+            <textarea name="description" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">URL фото</label>
+            <input type="text" name="photo_url" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+                Сохранить
+            </button>
+            <button type="button" onclick="hideAddForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">
+                Отмена
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Модальное окно для редактирования -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h2 class="text-2xl font-semibold mb-4">Редактировать инструктора</h2>
+        <form id="edit-form" class="space-y-4">
+            <input type="hidden" id="edit-id" name="id">
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Имя</label>
+                <input type="text" id="edit-name" name="name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Телефон</label>
+                <input type="tel" id="edit-phone" name="phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Описание</label>
+                <textarea id="edit-description" name="description" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">URL фото</label>
+                <input type="text" id="edit-photo" name="photo_url" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+                    Сохранить
+                </button>
+                <button type="button" onclick="hideEditModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">
+                    Отмена
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="instructors-list" hx-get="/admin/api/instructors" hx-trigger="load" hx-swap="innerHTML" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+        <p class="text-gray-500">Загрузка...</p>
+    </div>
+</div>
+
+<script>
+    function showAddForm() {
+        document.getElementById('add-form').classList.remove('hidden');
+    }
+    function hideAddForm() {
+        document.getElementById('add-form').classList.add('hidden');
+        document.querySelector('#add-form form').reset();
+    }
+    
+    function editInstructor(id) {
+        // Получить данные инструктора
+        fetch(`/admin/api/instructors/${id}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('edit-id').value = data.id;
+                document.getElementById('edit-name').value = data.name;
+                document.getElementById('edit-phone').value = data.phone;
+                document.getElementById('edit-description').value = data.description;
+                document.getElementById('edit-photo').value = data.photo || '';
+                document.getElementById('edit-modal').classList.remove('hidden');
+            });
+    }
+    
+    function hideEditModal() {
+        document.getElementById('edit-modal').classList.add('hidden');
+    }
+    
+    // Обработка отправки формы редактирования
+    document.getElementById('edit-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('edit-id').value;
+        const formData = new FormData(this);
+        const data = {
+            name: formData.get('name'),
+            phone: formData.get('phone'),
+            description: formData.get('description'),
+            photo: formData.get('photo_url')
+        };
+        
+        fetch(`/admin/api/instructors/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(() => {
+            hideEditModal();
+            // Обновить список
+            htmx.trigger('#instructors-list', 'load');
+        });
+    });
+</script>
+{{end}}

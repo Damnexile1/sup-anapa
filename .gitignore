@@ -1,0 +1,9 @@
+.env
+*.log
+bin/
+tmp/
+.DS_Store
+.idea/
+*.swp
+*.swo
+*~

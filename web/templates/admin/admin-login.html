@@ -1,0 +1,34 @@
+{{define "title"}}Вход в админку - SUP Anapa{{end}}
+
+{{define "content"}}
+<div class="max-w-md mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Вход в админку</h1>
+        
+        {{if .Error}}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {{.Error}}
+        </div>
+        {{end}}
+        
+        <form method="POST" action="/admin/login" class="space-y-4">
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Логин</label>
+                <input type="text" name="username" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Пароль</label>
+                <input type="password" name="password" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <button type="submit" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200">
+                Войти
+            </button>
+        </form>
+    </div>
+</div>
+{{end}}

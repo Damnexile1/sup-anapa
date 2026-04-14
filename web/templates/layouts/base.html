@@ -1,0 +1,44 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{template "title" .}}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold">SUP Anapa</a>
+            <div class="space-x-4">
+                <a href="/" class="hover:underline">Главная</a>
+                <a href="/instructors" class="hover:underline">Инструкторы</a>
+                <a href="/booking" class="hover:underline">Бронирование</a>
+                {{if .Username}}
+                <a href="/admin" class="hover:underline">Админка</a>
+                <span class="text-blue-200">{{.Username}}</span>
+                <a href="/admin/logout" class="hover:underline">Выход</a>
+                {{else}}
+                <a href="/admin/login" class="hover:underline">Вход</a>
+                {{end}}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto py-8 px-4">
+        {{template "content" .}}
+    </main>
+
+    <footer class="bg-gray-800 text-white p-6 mt-12">
+        <div class="container mx-auto text-center">
+            <p>&copy; 2026 SUP Anapa. Все права защищены.</p>
+        </div>
+    </footer>
+</body>
+</html>
+{{end}}
+
+{{define "title"}}SUP Anapa{{end}}
+{{define "content"}}{{end}}
