@@ -1,4 +1,4 @@
-.PHONY: help build run dev test clean docker-up docker-up-build docker-down migrate-up migrate-down migrate-create deploy-local deploy-prod
+.PHONY: help build run dev test clean docker-up docker-up-build docker-down migrate-up migrate-down migrate-create deploy-local deploy-prod logs-file
 
 # Переменные
 APP_NAME=sup-anapa
@@ -76,6 +76,10 @@ docker-logs: ## Показать логи контейнеров
 
 docker-logs-app: ## Показать логи приложения
 	$(DOCKER_COMPOSE) logs -f app
+
+logs-file: ## Показать file-логи приложения (logs/app.log)
+	@mkdir -p logs
+	@tail -f logs/app.log
 
 docker-logs-db: ## Показать логи БД
 	$(DOCKER_COMPOSE) logs -f postgres
