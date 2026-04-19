@@ -93,6 +93,7 @@ func main() {
 			r.Get("/", handlers.AdminDashboard)
 			r.Get("/instructors", handlers.AdminInstructors)
 			r.Get("/slots", handlers.AdminSlots)
+			r.Get("/walk-types", handlers.AdminWalkTypes)
 			r.Get("/bookings", handlers.AdminBookings)
 
 			// API routes

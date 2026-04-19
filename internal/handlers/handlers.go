@@ -236,6 +236,13 @@ func AdminBookings(w http.ResponseWriter, r *http.Request) {
 	}, getTemplateData(r, nil))
 }
 
+func AdminWalkTypes(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/admin/admin-walk-types.html",
+	}, getTemplateData(r, nil))
+}
+
 func AdminLogout(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "admin-session")
 	session.Options.MaxAge = -1
