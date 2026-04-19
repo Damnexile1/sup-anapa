@@ -136,7 +136,14 @@ func UserRegisterPost(w http.ResponseWriter, r *http.Request) {
 	next := safeNextURL(r.FormValue("next"), "/booking")
 	user, err := userAuthSvc.Register(r.Context(), r.FormValue("username"), r.FormValue("password"), r.FormValue("phone"))
 	if err != nil {
-		http.Error(w, "Не удалось зарегистрироваться. Возможно, логин уже занят.", http.StatusBadRequest)
+		data := getTemplateData(r, map[string]interface{}{
+			"Next":  next,
+			"Error": "Не удалось зарегистрироваться. Возможно, логин уже занят.",
+		})
+		renderTemplate(w, []string{
+			"web/templates/layouts/base.html",
+			"web/templates/public/user-register.html",
+		}, data)
 		return
 	}
 	session, _ := store.Get(r, "user-session")
@@ -157,7 +164,14 @@ func UserLoginPost(w http.ResponseWriter, r *http.Request) {
 	next := safeNextURL(r.FormValue("next"), "/booking")
 	user, err := userAuthSvc.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
-		http.Error(w, "Неверный логин или пароль", http.StatusUnauthorized)
+		data := getTemplateData(r, map[string]interface{}{
+			"Next":  next,
+			"Error": "Неверный логин или пароль",
+		})
+		renderTemplate(w, []string{
+			"web/templates/layouts/base.html",
+			"web/templates/public/user-login.html",
+		}, data)
 		return
 	}
 	session, _ := store.Get(r, "user-session")
