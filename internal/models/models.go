@@ -3,13 +3,24 @@ package models
 import "time"
 
 type Instructor struct {
-	ID          int       `db:"id"`
-	Name        string    `db:"name"`
-	Photo       string    `db:"photo"`
-	Description string    `db:"description"`
-	Phone       string    `db:"phone"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID          int         `db:"id"`
+	Name        string      `db:"name"`
+	Photo       string      `db:"photo"`
+	Description string      `db:"description"`
+	Phone       string      `db:"phone"`
+	WalkTypes   []*WalkType `db:"-"`
+	CreatedAt   time.Time   `db:"created_at"`
+	UpdatedAt   time.Time   `db:"updated_at"`
+}
+
+type WalkType struct {
+	ID           int       `db:"id"`
+	InstructorID int       `db:"instructor_id"`
+	Name         string    `db:"name"`
+	Price        int       `db:"price"`
+	MaxPeople    int       `db:"max_people"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 }
 
 type Slot struct {
@@ -20,6 +31,8 @@ type Slot struct {
 	Price         int        `db:"price"`
 	MaxPeople     int        `db:"max_people"`
 	InstructorID  int        `db:"instructor_id"`
+	WalkTypeID    int        `db:"walk_type_id"`
+	WalkTypeName  string     `db:"-"`
 	Status        string     `db:"status"`
 	HoldExpiresAt *time.Time `db:"hold_expires_at"`
 	CreatedAt     time.Time  `db:"created_at"`
@@ -29,6 +42,7 @@ type Slot struct {
 type Booking struct {
 	ID          int       `db:"id"`
 	SlotID      int       `db:"slot_id"`
+	UserID      int       `db:"user_id"`
 	ClientName  string    `db:"client_name"`
 	ClientPhone string    `db:"client_phone"`
 	ClientEmail string    `db:"client_email"`
@@ -42,6 +56,14 @@ type Admin struct {
 	ID           int       `db:"id"`
 	Username     string    `db:"username"`
 	PasswordHash string    `db:"password_hash"`
+	CreatedAt    time.Time `db:"created_at"`
+}
+
+type User struct {
+	ID           int       `db:"id"`
+	Username     string    `db:"username"`
+	PasswordHash string    `db:"password_hash"`
+	Phone        string    `db:"phone"`
 	CreatedAt    time.Time `db:"created_at"`
 }
 

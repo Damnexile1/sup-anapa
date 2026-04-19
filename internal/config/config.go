@@ -8,6 +8,7 @@ type Config struct {
 	WeatherAPIKey string
 	VKBotToken    string
 	SessionSecret string
+	LogFile       string
 }
 
 func Load() *Config {
@@ -17,6 +18,7 @@ func Load() *Config {
 		WeatherAPIKey: getEnv("WEATHER_API_KEY", ""),
 		VKBotToken:    getEnv("VK_BOT_TOKEN", ""),
 		SessionSecret: getEnv("SESSION_SECRET", "change-me-in-production"),
+		LogFile:       getEnv("LOG_FILE", "logs/app.log"),
 	}
 }
 

@@ -1,4 +1,4 @@
-.PHONY: help build run dev test clean docker-up docker-down migrate-up migrate-down migrate-create deploy-local deploy-prod
+.PHONY: help build run dev test clean docker-up docker-up-build docker-down migrate-up migrate-down migrate-create deploy-local deploy-prod logs-file
 
 # Переменные
 APP_NAME=sup-anapa
@@ -61,6 +61,12 @@ docker-up: ## Запустить все сервисы через Docker Compose
 	@echo "$(GREEN)Контейнеры запущены!$(NC)"
 	@echo "$(YELLOW)Приложение доступно на http://localhost:8080$(NC)"
 
+docker-up-build: ## Пересобрать образы и запустить сервисы через Docker Compose
+	@echo "$(GREEN)Сборка и запуск Docker контейнеров...$(NC)"
+	$(DOCKER_COMPOSE) up -d --build
+	@echo "$(GREEN)Контейнеры запущены с пересборкой!$(NC)"
+	@echo "$(YELLOW)Приложение доступно на http://localhost:8080$(NC)"
+
 docker-down: ## Остановить все сервисы
 	@echo "$(GREEN)Остановка Docker контейнеров...$(NC)"
 	$(DOCKER_COMPOSE) down
@@ -70,6 +76,10 @@ docker-logs: ## Показать логи контейнеров
 
 docker-logs-app: ## Показать логи приложения
 	$(DOCKER_COMPOSE) logs -f app
+
+logs-file: ## Показать file-логи приложения (logs/app.log)
+	@mkdir -p logs
+	@tail -f logs/app.log
 
 docker-logs-db: ## Показать логи БД
 	$(DOCKER_COMPOSE) logs -f postgres
@@ -133,8 +143,8 @@ deploy-local: ## Полный деплой на локальной машине
 	fi
 	@echo "$(GREEN)✓ .env найден$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Шаг 2: Запуск Docker контейнеров...$(NC)"
-	@$(MAKE) docker-up
+	@echo "$(YELLOW)Шаг 2: Пересборка и запуск Docker контейнеров...$(NC)"
+	@$(MAKE) docker-up-build
 	@echo ""
 	@echo "$(YELLOW)Шаг 3: Ожидание готовности БД...$(NC)"
 	@sleep 5

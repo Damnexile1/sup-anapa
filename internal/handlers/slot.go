@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
 	"time"
@@ -17,24 +18,32 @@ import (
 type SlotHandler struct {
 	repo           *repository.SlotRepository
 	instructorRepo *repository.InstructorRepository
+	walkTypeRepo   *repository.WalkTypeRepository
 }
 
-func NewSlotHandler(repo *repository.SlotRepository, instructorRepo *repository.InstructorRepository) *SlotHandler {
-	return &SlotHandler{
-		repo:           repo,
-		instructorRepo: instructorRepo,
-	}
+func NewSlotHandler(repo *repository.SlotRepository, instructorRepo *repository.InstructorRepository, walkTypeRepo *repository.WalkTypeRepository) *SlotHandler {
+	return &SlotHandler{repo: repo, instructorRepo: instructorRepo, walkTypeRepo: walkTypeRepo}
 }
 
 func (h *SlotHandler) List(w http.ResponseWriter, r *http.Request) {
-	slots, err := h.repo.GetAll(r.Context())
+	instructorID, _ := strconv.Atoi(r.URL.Query().Get("instructor_id"))
+	walkTypeID, _ := strconv.Atoi(r.URL.Query().Get("walk_type_id"))
+
+	var (
+		slots []*models.Slot
+		err   error
+	)
+	if instructorID > 0 || walkTypeID > 0 {
+		slots, err = h.repo.GetByFilters(r.Context(), instructorID, walkTypeID)
+	} else {
+		slots, err = h.repo.GetAll(r.Context())
+	}
 	if err != nil {
 		log.Printf("Error getting slots: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Проверить, нужен ли HTML ответ (для HTMX)
 	if r.Header.Get("HX-Request") == "true" {
 		h.renderSlotsList(w, slots)
 		return
@@ -51,14 +60,17 @@ func (h *SlotHandler) renderSlotsList(w http.ResponseWriter, slots []*models.Slo
 	}
 
 	for _, slot := range slots {
-		// Получить имя инструктора
 		instructorName := fmt.Sprintf("Инструктор #%d", slot.InstructorID)
 		instructor, err := h.instructorRepo.GetByID(context.Background(), slot.InstructorID)
 		if err == nil {
 			instructorName = instructor.Name
 		}
 
-		// Убрать секунды из времени
+		walkTypeName := slot.WalkTypeName
+		if walkTypeName == "" {
+			walkTypeName = "Не выбрана"
+		}
+
 		startTime := slot.StartTime
 		if len(startTime) > 5 {
 			startTime = startTime[:5]
@@ -72,6 +84,7 @@ func (h *SlotHandler) renderSlotsList(w http.ResponseWriter, slots []*models.Slo
 		<tr class="border-b hover:bg-gray-50">
 			<td class="px-6 py-4">%s</td>
 			<td class="px-6 py-4">%s - %s</td>
+			<td class="px-6 py-4">%s</td>
 			<td class="px-6 py-4">%d ₽</td>
 			<td class="px-6 py-4">%d чел.</td>
 			<td class="px-6 py-4">%s</td>
@@ -85,7 +98,7 @@ func (h *SlotHandler) renderSlotsList(w http.ResponseWriter, slots []*models.Slo
 					</button>
 				</div>
 			</td>
-		</tr>`, slot.Date.Format("02.01.2006"), startTime, endTime, slot.Price, slot.MaxPeople, instructorName, slot.ID, slot.ID)
+		</tr>`, slot.Date.Format("02.01.2006"), startTime, endTime, walkTypeName, slot.Price, slot.MaxPeople, instructorName, slot.ID, slot.ID)
 	}
 }
 
@@ -114,15 +127,18 @@ func (h *SlotHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	price, _ := strconv.Atoi(r.FormValue("price"))
-	maxPeople, _ := strconv.Atoi(r.FormValue("max_people"))
 	instructorID, _ := strconv.Atoi(r.FormValue("instructor_id"))
+	walkTypeID, _ := strconv.Atoi(r.FormValue("walk_type_id"))
 
-	// Парсинг даты
-	dateStr := r.FormValue("date")
-	date, err := time.Parse("2006-01-02", dateStr)
+	date, err := time.Parse("2006-01-02", r.FormValue("date"))
 	if err != nil {
 		http.Error(w, "Invalid date format", http.StatusBadRequest)
+		return
+	}
+
+	walkType, err := h.walkTypeRepo.GetByID(r.Context(), walkTypeID)
+	if err != nil || walkType.InstructorID != instructorID {
+		http.Error(w, "Неверный тип прогулки", http.StatusBadRequest)
 		return
 	}
 
@@ -130,18 +146,18 @@ func (h *SlotHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Date:         date,
 		StartTime:    r.FormValue("start_time") + ":00",
 		EndTime:      r.FormValue("end_time") + ":00",
-		Price:        price,
-		MaxPeople:    maxPeople,
+		Price:        walkType.Price,
+		MaxPeople:    walkType.MaxPeople,
 		InstructorID: instructorID,
+		WalkTypeID:   walkTypeID,
 	}
 
 	if err := h.repo.Create(r.Context(), &slot); err != nil {
 		log.Printf("Error creating slot: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.writeSlotPersistenceError(w, err)
 		return
 	}
 
-	// Вернуть обновленный список
 	slots, err := h.repo.GetAll(r.Context())
 	if err != nil {
 		log.Printf("Error getting slots: %v", err)
@@ -153,8 +169,7 @@ func (h *SlotHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SlotHandler) Update(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -164,20 +179,23 @@ func (h *SlotHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Date         string `json:"date"`
 		StartTime    string `json:"start_time"`
 		EndTime      string `json:"end_time"`
-		Price        int    `json:"price"`
-		MaxPeople    int    `json:"max_people"`
 		InstructorID int    `json:"instructor_id"`
+		WalkTypeID   int    `json:"walk_type_id"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Парсинг даты
 	date, err := time.Parse("2006-01-02", data.Date)
 	if err != nil {
 		http.Error(w, "Invalid date format", http.StatusBadRequest)
+		return
+	}
+
+	walkType, err := h.walkTypeRepo.GetByID(r.Context(), data.WalkTypeID)
+	if err != nil || walkType.InstructorID != data.InstructorID {
+		http.Error(w, "Неверный тип прогулки", http.StatusBadRequest)
 		return
 	}
 
@@ -186,18 +204,18 @@ func (h *SlotHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Date:         date,
 		StartTime:    data.StartTime,
 		EndTime:      data.EndTime,
-		Price:        data.Price,
-		MaxPeople:    data.MaxPeople,
+		Price:        walkType.Price,
+		MaxPeople:    walkType.MaxPeople,
 		InstructorID: data.InstructorID,
+		WalkTypeID:   data.WalkTypeID,
 	}
 
 	if err := h.repo.Update(r.Context(), &slot); err != nil {
 		log.Printf("Error updating slot: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.writeSlotPersistenceError(w, err)
 		return
 	}
 
-	// Вернуть обновленный список
 	slots, err := h.repo.GetAll(r.Context())
 	if err != nil {
 		log.Printf("Error getting slots: %v", err)
@@ -222,7 +240,6 @@ func (h *SlotHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Вернуть обновленный список
 	slots, err := h.repo.GetAll(r.Context())
 	if err != nil {
 		log.Printf("Error getting slots: %v", err)
@@ -231,4 +248,19 @@ func (h *SlotHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderSlotsList(w, slots)
+}
+
+func (h *SlotHandler) writeSlotPersistenceError(w http.ResponseWriter, err error) {
+	msg := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(msg, "walk_type_id"), strings.Contains(msg, "foreign key"):
+		http.Error(w, "Некорректный тип прогулки. Обновите страницу и выберите тип прогулки заново.", http.StatusBadRequest)
+	case strings.Contains(msg, "start_time"), strings.Contains(msg, "end_time"), strings.Contains(msg, "date"):
+		http.Error(w, "Проверьте дату и время слота.", http.StatusBadRequest)
+	case strings.Contains(msg, "column"), strings.Contains(msg, "does not exist"), strings.Contains(msg, "relation"):
+		http.Error(w, "Структура БД устарела. Пересоберите контейнер и примените миграции.", http.StatusInternalServerError)
+	default:
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }

@@ -28,17 +28,12 @@
             <input type="text" name="photo_url" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
         </div>
         <div class="flex gap-2">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
-                Сохранить
-            </button>
-            <button type="button" onclick="hideAddForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">
-                Отмена
-            </button>
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Сохранить</button>
+            <button type="button" onclick="hideAddForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">Отмена</button>
         </div>
     </form>
 </div>
 
-<!-- Модальное окно для редактирования -->
 <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
         <h2 class="text-2xl font-semibold mb-4">Редактировать инструктора</h2>
@@ -61,70 +56,64 @@
                 <input type="text" id="edit-photo" name="photo_url" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
-                    Сохранить
-                </button>
-                <button type="button" onclick="hideEditModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">
-                    Отмена
-                </button>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Сохранить</button>
+                <button type="button" onclick="hideEditModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">Отмена</button>
             </div>
         </form>
     </div>
 </div>
 
 <div id="instructors-list" hx-get="/admin/api/instructors" hx-trigger="load" hx-swap="innerHTML" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    <div class="bg-white rounded-lg shadow-lg p-6 text-center">
-        <p class="text-gray-500">Загрузка...</p>
-    </div>
+    <div class="bg-white rounded-lg shadow-lg p-6 text-center"><p class="text-gray-500">Загрузка...</p></div>
 </div>
 
 <script>
-    function showAddForm() {
-        document.getElementById('add-form').classList.remove('hidden');
-    }
-    function hideAddForm() {
-        document.getElementById('add-form').classList.add('hidden');
-        document.querySelector('#add-form form').reset();
-    }
-    
-    function editInstructor(id) {
-        fetch('/admin/api/instructors/' + id)
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                document.getElementById('edit-id').value = data.ID;
-                document.getElementById('edit-name').value = data.Name;
-                document.getElementById('edit-phone').value = data.Phone || '';
-                document.getElementById('edit-description').value = data.Description || '';
-                document.getElementById('edit-photo').value = data.Photo || '';
-                document.getElementById('edit-modal').classList.remove('hidden');
-            });
-    }
-    
-    function hideEditModal() {
-        document.getElementById('edit-modal').classList.add('hidden');
-    }
-    
-    document.getElementById('edit-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var id = document.getElementById('edit-id').value;
-        var formData = new FormData(this);
-        var data = {
-            name: formData.get('name'),
-            phone: formData.get('phone'),
-            description: formData.get('description'),
-            photo: formData.get('photo_url')
-        };
-        
-        fetch('/admin/api/instructors/' + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
-            body: JSON.stringify(data)
-        })
-        .then(function(res) { return res.text(); })
-        .then(function(html) {
-            document.getElementById('instructors-list').innerHTML = html;
-            hideEditModal();
+function showAddForm() { document.getElementById('add-form').classList.remove('hidden'); }
+function hideAddForm() { document.getElementById('add-form').classList.add('hidden'); document.querySelector('#add-form form').reset(); }
+
+function editInstructor(id) {
+    fetch('/admin/api/instructors/' + id)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('edit-id').value = data.ID;
+            document.getElementById('edit-name').value = data.Name;
+            document.getElementById('edit-phone').value = data.Phone || '';
+            document.getElementById('edit-description').value = data.Description || '';
+            document.getElementById('edit-photo').value = data.Photo || '';
+            document.getElementById('edit-modal').classList.remove('hidden');
         });
+}
+function hideEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+document.getElementById('edit-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var id = document.getElementById('edit-id').value;
+    var formData = new FormData(this);
+    fetch('/admin/api/instructors/' + id, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
+        body: JSON.stringify({
+            name: formData.get('name'), phone: formData.get('phone'), description: formData.get('description'), photo: formData.get('photo_url')
+        })
+    }).then(res => res.text()).then(html => {
+        document.getElementById('instructors-list').innerHTML = html;
+        hideEditModal();
     });
+});
+
+function addWalkType(instructorID) {
+    const name = prompt('Название прогулки');
+    if (!name) return;
+    const price = prompt('Цена, ₽');
+    const maxPeople = prompt('Максимум человек');
+    const body = new URLSearchParams({ instructor_id: instructorID, name, price, max_people: maxPeople });
+
+    fetch('/admin/api/walk-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'HX-Request': 'true' },
+        body: body.toString()
+    }).then(res => res.text()).then(html => {
+        document.getElementById('walk-types-' + instructorID).innerHTML = html;
+    });
+}
 </script>
 {{end}}

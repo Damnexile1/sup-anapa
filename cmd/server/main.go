@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"sup-anapa/internal/config"
 	"sup-anapa/internal/handlers"
+	"sup-anapa/internal/logger"
 	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
@@ -18,24 +18,31 @@ import (
 
 func main() {
 	cfg := config.Load()
+	appLogger, err := logger.Init(cfg.LogFile)
+	if err != nil {
+		panic(err)
+	}
+	defer appLogger.Close()
 
 	// Подключение к БД
 	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("Unable to connect to database:", err)
+		appLogger.Fatal("Unable to connect to database", map[string]interface{}{"error": err.Error()})
 	}
 	defer pool.Close()
 
 	// Проверка подключения
 	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatal("Unable to ping database:", err)
+		appLogger.Fatal("Unable to ping database", map[string]interface{}{"error": err.Error()})
 	}
-	log.Println("✓ Successfully connected to database")
+	appLogger.Info("Successfully connected to database", nil)
 
 	// Инициализация репозиториев
 	bookingRepo := repository.NewBookingRepository(pool)
 	instructorRepo := repository.NewInstructorRepository(pool)
 	slotRepo := repository.NewSlotRepository(pool)
+	walkTypeRepo := repository.NewWalkTypeRepository(pool)
+	userRepo := repository.NewUserRepository(pool)
 	adminRepo := repository.NewAdminRepository(pool)
 
 	// Инициализация сервисов
@@ -43,9 +50,11 @@ func main() {
 	bookingService := services.NewBookingService(bookingRepo, notificationService)
 	weatherService := services.NewWeatherService(cfg.WeatherAPIKey)
 	authService := services.NewAuthService(adminRepo)
+	userAuthService := services.NewUserAuthService(userRepo)
 
 	// Инициализация handlers
 	handlers.Init(cfg.SessionSecret, authService)
+	handlers.SetUserAuthService(userAuthService)
 	handlers.SetRepositories(bookingRepo, instructorRepo, slotRepo)
 
 	// Инициализация middleware
@@ -53,7 +62,8 @@ func main() {
 
 	// Инициализация API handlers
 	instructorHandler := handlers.NewInstructorHandler(instructorRepo)
-	slotHandler := handlers.NewSlotHandler(slotRepo, instructorRepo)
+	slotHandler := handlers.NewSlotHandler(slotRepo, instructorRepo, walkTypeRepo)
+	walkTypeHandler := handlers.NewWalkTypeHandler(walkTypeRepo)
 	bookingHandler := handlers.NewBookingHandler(bookingRepo, slotRepo, instructorRepo)
 
 	// TODO: Передать сервисы в handlers
@@ -61,6 +71,9 @@ func main() {
 	_ = weatherService
 
 	r := chi.NewRouter()
+	r.Use(chimiddleware.RequestID)
+	r.Use(middleware.CorrelationID)
+	r.Use(middleware.AccessLog)
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 
@@ -71,12 +84,24 @@ func main() {
 	// Public routes
 	r.Get("/", handlers.Home)
 	r.Get("/booking", handlers.BookingPage)
+	r.Get("/booking/", handlers.BookingPage)
+	r.Get("/user/register", handlers.UserRegisterPage)
+	r.Post("/user/register", handlers.UserRegisterPost)
+	r.Get("/user/login", handlers.UserLoginPage)
+	r.Post("/user/login", handlers.UserLoginPost)
+	r.Get("/user/logout", handlers.UserLogout)
+	r.Get("/lk", handlers.UserCabinet)
 	r.Get("/instructors", handlers.InstructorsPage)
 	r.Post("/booking", handlers.CreateBooking)
+	r.Post("/booking/", handlers.CreateBooking)
+	r.Post("/api/booking", handlers.CreateBooking)
+	r.Post("/api/booking/", handlers.CreateBooking)
+	r.Get("/favicon.ico", handlers.Favicon)
 
 	// Public API (no auth required)
 	r.Get("/api/instructors", instructorHandler.List)
 	r.Get("/api/slots", slotHandler.List)
+	r.Get("/api/instructors/{id}/walk-types", walkTypeHandler.ListByInstructor)
 
 	// Admin routes
 	r.Route("/admin", func(r chi.Router) {
@@ -90,6 +115,9 @@ func main() {
 			r.Get("/", handlers.AdminDashboard)
 			r.Get("/instructors", handlers.AdminInstructors)
 			r.Get("/slots", handlers.AdminSlots)
+			r.Get("/walk-types", handlers.AdminWalkTypes)
+			r.Get("/walk-types/", handlers.AdminWalkTypes)
+			r.Get("/walk_types", handlers.AdminWalkTypes)
 			r.Get("/bookings", handlers.AdminBookings)
 
 			// API routes
@@ -99,6 +127,12 @@ func main() {
 				r.Get("/{id}", instructorHandler.Get)
 				r.Put("/{id}", instructorHandler.Update)
 				r.Delete("/{id}", instructorHandler.Delete)
+				r.Get("/{id}/walk-types", walkTypeHandler.ListByInstructor)
+			})
+
+			r.Route("/api/walk-types", func(r chi.Router) {
+				r.Post("/", walkTypeHandler.Create)
+				r.Delete("/{id}", walkTypeHandler.Delete)
 			})
 
 			r.Route("/api/slots", func(r chi.Router) {
@@ -124,16 +158,16 @@ func main() {
 			ctx := context.Background()
 			n, err := slotRepo.ExpireHolds(ctx)
 			if err != nil {
-				log.Printf("Error expiring slot holds: %v", err)
+				appLogger.Error("Error expiring slot holds", map[string]interface{}{"error": err.Error()})
 			} else if n > 0 {
-				log.Printf("Expired %d pending slot holds", n)
+				appLogger.Info("Expired pending slot holds", map[string]interface{}{"count": n})
 			}
 		}
 	}()
 
 	addr := ":" + cfg.Port
-	log.Printf("✓ Server starting on %s", addr)
+	appLogger.Info("Server starting", map[string]interface{}{"addr": addr, "log_file": cfg.LogFile})
 	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatal(err)
+		appLogger.Fatal("ListenAndServe failed", map[string]interface{}{"error": err.Error()})
 	}
 }

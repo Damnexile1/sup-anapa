@@ -32,8 +32,7 @@ func (r *InstructorRepository) Create(ctx context.Context, instructor *models.In
 }
 
 func (r *InstructorRepository) GetByID(ctx context.Context, id int) (*models.Instructor, error) {
-	query := `SELECT id, name, photo, description, phone, created_at, updated_at
-			  FROM instructors WHERE id = $1`
+	query := `SELECT id, name, photo, description, phone, created_at, updated_at FROM instructors WHERE id = $1`
 
 	instructor := &models.Instructor{}
 	err := r.db.QueryRow(ctx, query, id).Scan(
@@ -48,12 +47,17 @@ func (r *InstructorRepository) GetByID(ctx context.Context, id int) (*models.Ins
 	if err != nil {
 		return nil, err
 	}
+
+	walkTypes, err := r.getWalkTypes(ctx, instructor.ID)
+	if err == nil {
+		instructor.WalkTypes = walkTypes
+	}
+
 	return instructor, nil
 }
 
 func (r *InstructorRepository) GetAll(ctx context.Context) ([]*models.Instructor, error) {
-	query := `SELECT id, name, photo, description, phone, created_at, updated_at
-			  FROM instructors ORDER BY name`
+	query := `SELECT id, name, photo, description, phone, created_at, updated_at FROM instructors ORDER BY name`
 
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -76,6 +80,10 @@ func (r *InstructorRepository) GetAll(ctx context.Context) ([]*models.Instructor
 		if err != nil {
 			return nil, err
 		}
+		walkTypes, err := r.getWalkTypes(ctx, instructor.ID)
+		if err == nil {
+			instructor.WalkTypes = walkTypes
+		}
 		instructors = append(instructors, instructor)
 	}
 	return instructors, nil
@@ -95,4 +103,24 @@ func (r *InstructorRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM instructors WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, id)
 	return err
+}
+
+func (r *InstructorRepository) getWalkTypes(ctx context.Context, instructorID int) ([]*models.WalkType, error) {
+	query := `SELECT id, instructor_id, name, price, max_people, created_at, updated_at FROM walk_types WHERE instructor_id = $1 ORDER BY name`
+	rows, err := r.db.Query(ctx, query, instructorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	walkTypes := make([]*models.WalkType, 0)
+	for rows.Next() {
+		wt := &models.WalkType{}
+		if err := rows.Scan(&wt.ID, &wt.InstructorID, &wt.Name, &wt.Price, &wt.MaxPeople, &wt.CreatedAt, &wt.UpdatedAt); err != nil {
+			return nil, err
+		}
+		walkTypes = append(walkTypes, wt)
+	}
+
+	return walkTypes, nil
 }

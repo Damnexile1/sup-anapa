@@ -59,16 +59,23 @@ func (h *InstructorHandler) renderInstructorsList(w http.ResponseWriter, instruc
 				<h3 class="text-xl font-semibold mb-2">%s</h3>
 				<p class="text-gray-600 mb-2">%s</p>
 				<p class="text-gray-500 text-sm mb-4">%s</p>
+
+				<div class="mb-4">
+					<div class="flex items-center justify-between mb-2">
+						<p class="font-semibold text-sm">Типы прогулок</p>
+						<button onclick="addWalkType(%d)" class="text-blue-600 text-sm">+ Добавить</button>
+					</div>
+					<div id="walk-types-%d" hx-get="/admin/api/instructors/%d/walk-types" hx-trigger="load" hx-swap="innerHTML">
+						<p class="text-sm text-gray-500">Загрузка...</p>
+					</div>
+				</div>
+
 				<div class="flex gap-2">
-					<button onclick="editInstructor(%d)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-						Редактировать
-					</button>
-					<button hx-delete="/admin/api/instructors/%d" hx-confirm="Удалить инструктора?" hx-target="#instructors-list" hx-swap="innerHTML" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-						Удалить
-					</button>
+					<button onclick="editInstructor(%d)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Редактировать</button>
+					<button hx-delete="/admin/api/instructors/%d" hx-confirm="Удалить инструктора?" hx-target="#instructors-list" hx-swap="innerHTML" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">Удалить</button>
 				</div>
 			</div>
-		</div>`, photoURL, instructor.Name, instructor.Name, instructor.Phone, instructor.Description, instructor.ID, instructor.ID)
+		</div>`, photoURL, instructor.Name, instructor.Name, instructor.Phone, instructor.Description, instructor.ID, instructor.ID, instructor.ID, instructor.ID, instructor.ID)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
@@ -16,6 +17,7 @@ import (
 var (
 	store          *sessions.CookieStore
 	authSvc        *services.AuthService
+	userAuthSvc    *services.UserAuthService
 	bookingRepo    *repository.BookingRepository
 	instructorRepo *repository.InstructorRepository
 	slotRepo       *repository.SlotRepository
@@ -24,6 +26,10 @@ var (
 func Init(sessionSecret string, authService *services.AuthService) {
 	store = sessions.NewCookieStore([]byte(sessionSecret))
 	authSvc = authService
+}
+
+func SetUserAuthService(userAuth *services.UserAuthService) {
+	userAuthSvc = userAuth
 }
 
 func SetRepositories(booking *repository.BookingRepository, instructor *repository.InstructorRepository, slot *repository.SlotRepository) {
@@ -65,6 +71,13 @@ func getTemplateData(r *http.Request, data map[string]interface{}) map[string]in
 		}
 	}
 
+	userSession, err := store.Get(r, "user-session")
+	if err == nil {
+		if username, ok := userSession.Values["username"].(string); ok {
+			data["UserUsername"] = username
+		}
+	}
+
 	return data
 }
 
@@ -89,6 +102,83 @@ func InstructorsPage(w http.ResponseWriter, r *http.Request) {
 	}, getTemplateData(r, nil))
 }
 
+func Favicon(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func UserRegisterPage(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/public/user-register.html",
+	}, getTemplateData(r, nil))
+}
+
+func UserLoginPage(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/public/user-login.html",
+	}, getTemplateData(r, nil))
+}
+
+func UserRegisterPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+	_, err := userAuthSvc.Register(r.Context(), r.FormValue("username"), r.FormValue("password"), r.FormValue("phone"))
+	if err != nil {
+		http.Error(w, "Не удалось зарегистрироваться. Возможно, логин уже занят.", http.StatusBadRequest)
+		return
+	}
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+}
+
+func UserLoginPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+	user, err := userAuthSvc.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
+	if err != nil {
+		http.Error(w, "Неверный логин или пароль", http.StatusUnauthorized)
+		return
+	}
+	session, _ := store.Get(r, "user-session")
+	session.Values["user_id"] = user.ID
+	session.Values["username"] = user.Username
+	if err := session.Save(r, w); err != nil {
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/lk", http.StatusSeeOther)
+}
+
+func UserLogout(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "user-session")
+	session.Options.MaxAge = -1
+	session.Save(r, w)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func UserCabinet(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "user-session")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok || userID < 1 {
+		http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+		return
+	}
+	bookings, err := bookingRepo.GetByUserID(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "Ошибка загрузки бронирований", http.StatusInternalServerError)
+		return
+	}
+	data := getTemplateData(r, map[string]interface{}{"Bookings": bookings})
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/public/user-cabinet.html",
+	}, data)
+}
+
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	var bookingData struct {
 		SlotID      int    `json:"slot_id"`
@@ -99,7 +189,16 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&bookingData); err != nil {
+		log.Printf("CreateBooking: invalid request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	correlationID := middleware.GetCorrelationID(r.Context())
+	log.Printf("CreateBooking: correlation_id=%s incoming request slot_id=%d people=%d client=%q", correlationID, bookingData.SlotID, bookingData.PeopleCount, bookingData.ClientName)
+
+	if bookingData.SlotID < 1 {
+		http.Error(w, "Выберите слот для бронирования", http.StatusBadRequest)
 		return
 	}
 
@@ -118,6 +217,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	slot, err := slotRepo.GetByIDWithLock(r.Context(), bookingData.SlotID)
 	if err != nil {
+		log.Printf("CreateBooking: correlation_id=%s slot not found slot_id=%d err=%v", correlationID, bookingData.SlotID, err)
 		http.Error(w, "Слот не найден", http.StatusNotFound)
 		return
 	}
@@ -126,9 +226,14 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if bookingData.PeopleCount > slot.MaxPeople {
+		http.Error(w, "Слишком много человек для выбранной прогулки", http.StatusBadRequest)
+		return
+	}
+
 	holdExpires := time.Now().Add(20 * time.Minute)
 	if err := slotRepo.SetPending(r.Context(), bookingData.SlotID, holdExpires); err != nil {
-		log.Printf("Error setting slot pending: %v", err)
+		log.Printf("CreateBooking: correlation_id=%s error setting slot pending: %v", correlationID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -141,13 +246,19 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		PeopleCount: bookingData.PeopleCount,
 		Status:      "pending",
 	}
+	userSession, _ := store.Get(r, "user-session")
+	if userID, ok := userSession.Values["user_id"].(int); ok && userID > 0 {
+		booking.UserID = userID
+	}
 
 	if err := bookingRepo.Create(r.Context(), booking); err != nil {
 		slotRepo.SetAvailable(r.Context(), bookingData.SlotID)
-		log.Printf("Error creating booking: %v", err)
+		log.Printf("CreateBooking: correlation_id=%s error creating booking: %v", correlationID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("CreateBooking: correlation_id=%s created booking_id=%d slot_id=%d status=%s", correlationID, booking.ID, booking.SlotID, booking.Status)
 
 	response := map[string]interface{}{
 		"ID":           booking.ID,
@@ -228,6 +339,13 @@ func AdminBookings(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, []string{
 		"web/templates/layouts/base.html",
 		"web/templates/admin/admin-bookings.html",
+	}, getTemplateData(r, nil))
+}
+
+func AdminWalkTypes(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/admin/admin-walk-types.html",
 	}, getTemplateData(r, nil))
 }
 
