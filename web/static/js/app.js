@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     loadInstructors();
-    loadSlots();
+    setupBookingFlow();
 });
 
 function loadInstructors() {
@@ -28,21 +28,18 @@ function loadInstructors() {
 
                 var body = document.createElement('div');
                 body.className = 'p-6';
+                body.innerHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-2">' + instructor.Name + '</h3>' +
+                    '<p class="text-gray-600 mb-3">' + (instructor.Phone || '') + '</p>' +
+                    '<p class="text-gray-700 mb-3">' + (instructor.Description || 'Опытный инструктор SUP') + '</p>';
 
-                var name = document.createElement('h3');
-                name.className = 'text-2xl font-bold text-gray-800 mb-2';
-                name.textContent = instructor.Name;
-                body.appendChild(name);
-
-                var phone = document.createElement('p');
-                phone.className = 'text-gray-600 mb-3';
-                phone.textContent = instructor.Phone;
-                body.appendChild(phone);
-
-                var desc = document.createElement('p');
-                desc.className = 'text-gray-700';
-                desc.textContent = instructor.Description || 'Опытный инструктор SUP';
-                body.appendChild(desc);
+                if (instructor.WalkTypes && instructor.WalkTypes.length > 0) {
+                    var wtHtml = '<div class="text-sm text-gray-600"><p class="font-semibold mb-1">Прогулки:</p>';
+                    instructor.WalkTypes.forEach(function(wt) {
+                        wtHtml += '<p>• ' + wt.Name + ' — ' + wt.Price + ' ₽, до ' + wt.MaxPeople + ' чел.</p>';
+                    });
+                    wtHtml += '</div>';
+                    body.innerHTML += wtHtml;
+                }
 
                 div.appendChild(body);
                 grid.appendChild(div);
@@ -50,183 +47,190 @@ function loadInstructors() {
         });
 }
 
-var selectedSlotData = null;
+var bookingState = {
+    instructor: null,
+    walkType: null,
+    slot: null
+};
 
-function loadSlots() {
-    fetch('/api/slots')
+function setupBookingFlow() {
+    if (!document.getElementById('booking-instructors')) return;
+    loadBookingInstructors();
+
+    var form = document.getElementById('booking-form');
+    if (!form) return;
+    form.addEventListener('submit', submitBookingForm);
+}
+
+function loadBookingInstructors() {
+    fetch('/api/instructors')
+        .then(function(res) { return res.json(); })
+        .then(function(instructors) {
+            var container = document.getElementById('booking-instructors');
+            if (instructors.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">Инструкторы пока недоступны</p>';
+                return;
+            }
+            container.innerHTML = '';
+            instructors.forEach(function(inst) {
+                var card = document.createElement('button');
+                card.type = 'button';
+                card.className = 'text-left border rounded-lg p-4 hover:border-blue-500';
+                card.innerHTML = '<p class="font-semibold">' + inst.Name + '</p><p class="text-sm text-gray-600">' + (inst.Description || '') + '</p>';
+                card.onclick = function() { selectInstructor(inst); };
+                container.appendChild(card);
+            });
+        });
+}
+
+function selectInstructor(inst) {
+    bookingState.instructor = inst;
+    bookingState.walkType = null;
+    bookingState.slot = null;
+    document.getElementById('walk-type-step').classList.remove('hidden');
+    document.getElementById('slot-step').classList.add('hidden');
+    document.getElementById('booking-form-container').classList.add('hidden');
+
+    fetch('/api/instructors/' + inst.ID + '/walk-types')
+        .then(function(res) { return res.json(); })
+        .then(function(walkTypes) {
+            var container = document.getElementById('walk-types-container');
+            container.innerHTML = '';
+            if (walkTypes.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">У инструктора пока нет типов прогулок</p>';
+                return;
+            }
+            walkTypes.forEach(function(wt) {
+                var card = document.createElement('button');
+                card.type = 'button';
+                card.className = 'text-left border rounded-lg p-4 hover:border-blue-500';
+                card.innerHTML = '<p class="font-semibold">' + wt.Name + '</p>' +
+                    '<p class="text-sm text-blue-700">' + wt.Price + ' ₽</p>' +
+                    '<p class="text-sm text-gray-600">до ' + wt.MaxPeople + ' чел.</p>';
+                card.onclick = function() { selectWalkType(wt); };
+                container.appendChild(card);
+            });
+        });
+}
+
+function selectWalkType(walkType) {
+    bookingState.walkType = walkType;
+    bookingState.slot = null;
+    document.getElementById('slot-step').classList.remove('hidden');
+    document.getElementById('booking-form-container').classList.add('hidden');
+
+    fetch('/api/slots?instructor_id=' + bookingState.instructor.ID + '&walk_type_id=' + walkType.ID)
         .then(function(res) { return res.json(); })
         .then(function(slots) {
             var container = document.getElementById('slots-container');
-            if (!container) return;
+            container.innerHTML = '';
             if (slots.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">Нет доступных слотов для бронирования</p>';
+                container.innerHTML = '<p class="text-gray-500">Нет доступных слотов для выбранной прогулки</p>';
                 return;
             }
 
-            var slotsByDate = {};
+            var grouped = {};
             slots.forEach(function(slot) {
-                var d = new Date(slot.Date);
-                var dateStr = d.toLocaleDateString('ru-RU');
-                if (!slotsByDate[dateStr]) slotsByDate[dateStr] = [];
-                slotsByDate[dateStr].push(slot);
+                if (slot.Status !== 'available') return;
+                var date = new Date(slot.Date).toLocaleDateString('ru-RU');
+                if (!grouped[date]) grouped[date] = [];
+                grouped[date].push(slot);
             });
 
-            var dates = Object.keys(slotsByDate).sort();
-            dates.forEach(function(date) {
+            Object.keys(grouped).sort().forEach(function(date) {
                 var dateDiv = document.createElement('div');
                 dateDiv.className = 'mb-4';
+                dateDiv.innerHTML = '<h3 class="text-lg font-semibold mb-2">' + date + '</h3>';
+                var grid = document.createElement('div');
+                grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
 
-                var h3 = document.createElement('h3');
-                h3.className = 'text-lg font-semibold mb-2';
-                h3.textContent = date;
-                dateDiv.appendChild(h3);
-
-                var gridDiv = document.createElement('div');
-                gridDiv.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
-
-                slotsByDate[date].forEach(function(slot) {
-                    var start5 = slot.StartTime ? slot.StartTime.substring(0, 5) : '';
-                    var end5 = slot.EndTime ? slot.EndTime.substring(0, 5) : '';
-                    var isUnavailable = slot.Status === 'pending' || slot.Status === 'booked';
-                    var card = document.createElement('div');
-                    card.className = 'border rounded-lg p-4 cursor-pointer transition';
-                    if (isUnavailable) {
-                        card.className += ' border-gray-300 bg-gray-100 opacity-60 cursor-not-allowed';
-                        card.title = slot.Status === 'pending' ? 'Слот временно забронирован, ожидает подтверждения' : 'Слот подтверждён';
-                    } else {
-                        card.className += ' border-gray-300 hover:border-blue-500';
-                        card.onclick = (function(s) {
-                            return function() {
-                                selectSlot(s.ID, date, start5 + ' - ' + end5, s.Price, 'Инструктор #' + s.InstructorID, s.MaxPeople);
-                            };
-                        })(slot);
-                    }
-
-                    if (isUnavailable) {
-                        card.style.textDecoration = 'line-through';
-                    }
-
-                    var flex = document.createElement('div');
-                    flex.className = 'flex justify-between items-center';
-
-                    var left = document.createElement('div');
-                    var timeP = document.createElement('p');
-                    timeP.className = 'font-semibold';
-                    timeP.textContent = start5 + ' - ' + end5;
-                    left.appendChild(timeP);
-                    var capP = document.createElement('p');
-                    capP.className = 'text-sm text-gray-600';
-                    capP.textContent = 'До ' + slot.MaxPeople + ' человек';
-                    left.appendChild(capP);
-
-                    var right = document.createElement('div');
-                    right.className = 'text-right';
-                    var priceP = document.createElement('p');
-                    priceP.className = 'text-lg font-bold text-blue-600';
-                    priceP.textContent = slot.Price + ' \u20bd';
-                    right.appendChild(priceP);
-
-                    var statusBadge = document.createElement('span');
-                    statusBadge.className = 'text-xs font-semibold ml-2';
-                    if (slot.Status === 'pending') {
-                        statusBadge.textContent = 'Занят';
-                        statusBadge.className += ' text-orange-500';
-                    } else if (slot.Status === 'booked') {
-                        statusBadge.textContent = 'Занят';
-                        statusBadge.className += ' text-red-500';
-                    }
-                    right.appendChild(priceP);
-                    right.appendChild(statusBadge);
-
-                    flex.appendChild(left);
-                    flex.appendChild(right);
-                    card.appendChild(flex);
-                    gridDiv.appendChild(card);
+                grouped[date].forEach(function(slot) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'border rounded-lg p-4 text-left hover:border-blue-500';
+                    btn.innerHTML = '<p class="font-semibold">' + slot.StartTime.substring(0, 5) + ' - ' + slot.EndTime.substring(0, 5) + '</p>' +
+                        '<p class="text-sm text-gray-600">' + slot.Price + ' ₽ • до ' + slot.MaxPeople + ' чел.</p>';
+                    btn.onclick = function() { selectSlot(slot, date); };
+                    grid.appendChild(btn);
                 });
 
-                dateDiv.appendChild(gridDiv);
+                dateDiv.appendChild(grid);
                 container.appendChild(dateDiv);
             });
         });
 }
 
-function selectSlot(slotId, date, time, price, instructor, maxPeople) {
-    selectedSlotData = { date: date, time: time, price: price, instructor: instructor };
-    document.getElementById('selected-slot-id').value = slotId;
-    document.getElementById('people-count').max = maxPeople;
+function selectSlot(slot, dateLabel) {
+    bookingState.slot = slot;
+    document.getElementById('selected-slot-id').value = slot.ID;
+    document.getElementById('people-count').max = slot.MaxPeople;
     document.getElementById('booking-form-container').classList.remove('hidden');
 
-    var infoDiv = document.getElementById('weather-info');
-    infoDiv.innerHTML = '<h3 class="font-semibold mb-2">Детали бронирования</h3>' +
-        '<div class="space-y-2">' +
-        '<p class="text-gray-600">Дата: <span class="font-semibold">' + date + '</span></p>' +
-        '<p class="text-gray-600">Время: <span class="font-semibold">' + time + '</span></p>' +
-        '<p class="text-gray-600">Инструктор: <span class="font-semibold">' + instructor + '</span></p>' +
-        '<p class="text-gray-600">Цена: <span class="font-semibold text-blue-600">' + price + ' \u20bd</span></p>' +
-        '<p class="text-gray-600">Максимум человек: <span class="font-semibold">' + maxPeople + '</span></p>' +
-        '</div>';
+    document.getElementById('weather-info').innerHTML =
+        '<h3 class="font-semibold mb-2">Детали бронирования</h3>' +
+        '<p>Инструктор: <strong>' + bookingState.instructor.Name + '</strong></p>' +
+        '<p>Прогулка: <strong>' + bookingState.walkType.Name + '</strong></p>' +
+        '<p>Дата: <strong>' + dateLabel + '</strong></p>' +
+        '<p>Время: <strong>' + slot.StartTime.substring(0, 5) + ' - ' + slot.EndTime.substring(0, 5) + '</strong></p>' +
+        '<p>Цена: <strong class="text-blue-600">' + slot.Price + ' ₽</strong></p>' +
+        '<p>Максимум: <strong>' + slot.MaxPeople + ' чел.</strong></p>';
 
     document.getElementById('booking-form-container').scrollIntoView({ behavior: 'smooth' });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('booking-form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var formData = new FormData(form);
-            var data = {
-                slot_id: parseInt(formData.get('slot_id')),
-                client_name: formData.get('client_name'),
-                client_phone: formData.get('client_phone'),
-                client_email: formData.get('client_email'),
-                people_count: parseInt(formData.get('people_count'))
-            };
+function submitBookingForm(e) {
+    e.preventDefault();
+    var form = e.target;
+    var formData = new FormData(form);
+    var slotId = parseInt(formData.get('slot_id'));
 
-            var btn = form.querySelector('button[type="submit"]');
-            btn.disabled = true;
-            btn.textContent = 'Отправка...';
-
-            fetch('/booking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(function(res) {
-                if (!res.ok) {
-                    return res.json().then(function(err) {
-                        throw new Error(err || 'Ошибка при бронировании');
-                    });
-                }
-                return res.json();
-            })
-            .then(function(result) {
-                var slotDetails = selectedSlotData ? selectedSlotData.date + ' ' + selectedSlotData.time : 'Слот #' + data.slot_id;
-                var resultDiv = document.getElementById('booking-result');
-                resultDiv.innerHTML = '<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">' +
-                    '<p class="font-semibold">Бронирование отправлено!</p>' +
-                    '<p class="text-sm"><strong>Номер бронирования:</strong> #' + result.ID + '</p>' +
-                    '<p class="text-sm"><strong>Клиент:</strong> ' + data.client_name + '</p>' +
-                    '<p class="text-sm"><strong>Телефон:</strong> ' + data.client_phone + '</p>' +
-                    '<p class="text-sm"><strong>Количество человек:</strong> ' + data.people_count + '</p>' +
-                    '<p class="text-sm"><strong>Дата и время:</strong> ' + slotDetails + '</p>' +
-                    '<p class="text-sm mt-2"><strong>Статус:</strong> Ожидает подтверждения администратором в течение ' + holdMin + ' минут.</p>' +
-                    '</div>';
-                form.reset();
-                selectedSlotData = null;
-                loadSlots();
-            })
-            .catch(function(err) {
-                var resultDiv = document.getElementById('booking-result');
-                resultDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">' +
-                    '<p class="font-semibold">Ошибка при создании бронирования</p>' +
-                    '<p class="text-sm">' + (err.message || 'Пожалуйста, попробуйте еще раз') + '</p>' +
-                    '</div>';
-            })
-            .finally(function() {
-                btn.disabled = false;
-                btn.textContent = 'Забронировать';
-            });
-        });
+    if (!bookingState.slot || !Number.isFinite(slotId) || slotId < 1) {
+        document.getElementById('booking-result').innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">' +
+            '<p class="font-semibold">Выберите время прогулки</p>' +
+            '<p class="text-sm">Сначала выберите инструктора, прогулку и доступный слот.</p></div>';
+        return;
     }
-});
+
+    var data = {
+        slot_id: slotId,
+        client_name: formData.get('client_name'),
+        client_phone: formData.get('client_phone'),
+        client_email: formData.get('client_email'),
+        people_count: parseInt(formData.get('people_count'))
+    };
+
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+
+    fetch('/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(res) {
+        if (!res.ok) {
+            return res.text().then(function(err) { throw new Error(err || 'Ошибка при бронировании'); });
+        }
+        return res.json();
+    })
+    .then(function(result) {
+        document.getElementById('booking-result').innerHTML = '<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">' +
+            '<p class="font-semibold">Бронирование отправлено!</p>' +
+            '<p class="text-sm"><strong>Номер бронирования:</strong> #' + result.ID + '</p>' +
+            '<p class="text-sm"><strong>Маршрут:</strong> ' + bookingState.walkType.Name + '</p>' +
+            '<p class="text-sm mt-2"><strong>Статус:</strong> Ожидает подтверждения администратором в течение ' + result.hold_minutes + ' минут.</p>' +
+            '</div>';
+        form.reset();
+        selectWalkType(bookingState.walkType);
+    })
+    .catch(function(err) {
+        document.getElementById('booking-result').innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">' +
+            '<p class="font-semibold">Ошибка при создании бронирования</p>' +
+            '<p class="text-sm">' + (err.message || 'Пожалуйста, попробуйте еще раз') + '</p></div>';
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Забронировать';
+    });
+}

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
@@ -89,6 +90,10 @@ func InstructorsPage(w http.ResponseWriter, r *http.Request) {
 	}, getTemplateData(r, nil))
 }
 
+func Favicon(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	var bookingData struct {
 		SlotID      int    `json:"slot_id"`
@@ -99,7 +104,16 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&bookingData); err != nil {
+		log.Printf("CreateBooking: invalid request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	correlationID := middleware.GetCorrelationID(r.Context())
+	log.Printf("CreateBooking: correlation_id=%s incoming request slot_id=%d people=%d client=%q", correlationID, bookingData.SlotID, bookingData.PeopleCount, bookingData.ClientName)
+
+	if bookingData.SlotID < 1 {
+		http.Error(w, "Выберите слот для бронирования", http.StatusBadRequest)
 		return
 	}
 
@@ -118,6 +132,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	slot, err := slotRepo.GetByIDWithLock(r.Context(), bookingData.SlotID)
 	if err != nil {
+		log.Printf("CreateBooking: correlation_id=%s slot not found slot_id=%d err=%v", correlationID, bookingData.SlotID, err)
 		http.Error(w, "Слот не найден", http.StatusNotFound)
 		return
 	}
@@ -126,9 +141,14 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if bookingData.PeopleCount > slot.MaxPeople {
+		http.Error(w, "Слишком много человек для выбранной прогулки", http.StatusBadRequest)
+		return
+	}
+
 	holdExpires := time.Now().Add(20 * time.Minute)
 	if err := slotRepo.SetPending(r.Context(), bookingData.SlotID, holdExpires); err != nil {
-		log.Printf("Error setting slot pending: %v", err)
+		log.Printf("CreateBooking: correlation_id=%s error setting slot pending: %v", correlationID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -144,10 +164,12 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	if err := bookingRepo.Create(r.Context(), booking); err != nil {
 		slotRepo.SetAvailable(r.Context(), bookingData.SlotID)
-		log.Printf("Error creating booking: %v", err)
+		log.Printf("CreateBooking: correlation_id=%s error creating booking: %v", correlationID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("CreateBooking: correlation_id=%s created booking_id=%d slot_id=%d status=%s", correlationID, booking.ID, booking.SlotID, booking.Status)
 
 	response := map[string]interface{}{
 		"ID":           booking.ID,
@@ -228,6 +250,13 @@ func AdminBookings(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, []string{
 		"web/templates/layouts/base.html",
 		"web/templates/admin/admin-bookings.html",
+	}, getTemplateData(r, nil))
+}
+
+func AdminWalkTypes(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/admin/admin-walk-types.html",
 	}, getTemplateData(r, nil))
 }
 

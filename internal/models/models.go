@@ -3,13 +3,24 @@ package models
 import "time"
 
 type Instructor struct {
-	ID          int       `db:"id"`
-	Name        string    `db:"name"`
-	Photo       string    `db:"photo"`
-	Description string    `db:"description"`
-	Phone       string    `db:"phone"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID          int         `db:"id"`
+	Name        string      `db:"name"`
+	Photo       string      `db:"photo"`
+	Description string      `db:"description"`
+	Phone       string      `db:"phone"`
+	WalkTypes   []*WalkType `db:"-"`
+	CreatedAt   time.Time   `db:"created_at"`
+	UpdatedAt   time.Time   `db:"updated_at"`
+}
+
+type WalkType struct {
+	ID           int       `db:"id"`
+	InstructorID int       `db:"instructor_id"`
+	Name         string    `db:"name"`
+	Price        int       `db:"price"`
+	MaxPeople    int       `db:"max_people"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 }
 
 type Slot struct {
@@ -20,6 +31,8 @@ type Slot struct {
 	Price         int        `db:"price"`
 	MaxPeople     int        `db:"max_people"`
 	InstructorID  int        `db:"instructor_id"`
+	WalkTypeID    int        `db:"walk_type_id"`
+	WalkTypeName  string     `db:"-"`
 	Status        string     `db:"status"`
 	HoldExpiresAt *time.Time `db:"hold_expires_at"`
 	CreatedAt     time.Time  `db:"created_at"`

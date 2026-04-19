@@ -3,9 +3,7 @@
 {{define "content"}}
 <div class="mb-8 flex justify-between items-center">
     <h1 class="text-4xl font-bold text-gray-800">Слоты для бронирования</h1>
-    <button onclick="showAddForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
-        + Добавить слот
-    </button>
+    <button onclick="showAddForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">+ Добавить слот</button>
 </div>
 
 <div id="add-form" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -18,84 +16,46 @@
             </div>
             <div>
                 <label class="block text-gray-700 font-semibold mb-2">Инструктор</label>
-                <select id="instructor-select" name="instructor_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                    <option value="">Выберите инструктора</option>
-                </select>
+                <select id="instructor-select" name="instructor_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Тип прогулки</label>
+                <select id="walk-type-select" name="walk_type_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+                <p id="walk-type-hint" class="text-sm mt-2 text-gray-500"></p>
+            </div>
             <div>
                 <label class="block text-gray-700 font-semibold mb-2">Время начала</label>
                 <input type="time" name="start_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
             </div>
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Время окончания</label>
-                <input type="time" name="end_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-            </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Цена (₽)</label>
-                <input type="number" name="price" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-            </div>
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Макс. человек</label>
-                <input type="number" name="max_people" value="1" min="1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-            </div>
+        <div class="mt-4">
+            <label class="block text-gray-700 font-semibold mb-2">Время окончания</label>
+            <input type="time" name="end_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
         </div>
         <div class="flex gap-2 mt-4">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
-                Сохранить
-            </button>
-            <button type="button" onclick="hideAddForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">
-                Отмена
-            </button>
+            <button id="create-slot-submit" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Сохранить</button>
+            <button type="button" onclick="hideAddForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">Отмена</button>
         </div>
     </form>
 </div>
 
-<!-- Модальное окно для редактирования -->
 <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
         <h2 class="text-2xl font-semibold mb-4">Редактировать слот</h2>
         <form id="edit-form" class="space-y-4">
             <input type="hidden" id="edit-id" name="id">
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Дата</label>
-                <input type="date" id="edit-date" name="date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-            </div>
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Инструктор</label>
-                <select id="edit-instructor" name="instructor_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                </select>
-            </div>
+            <div><label class="block text-gray-700 font-semibold mb-2">Дата</label><input type="date" id="edit-date" name="date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
+            <div><label class="block text-gray-700 font-semibold mb-2">Инструктор</label><select id="edit-instructor" name="instructor_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select></div>
+            <div><label class="block text-gray-700 font-semibold mb-2">Тип прогулки</label><select id="edit-walk-type" name="walk_type_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select></div>
             <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Время начала</label>
-                    <input type="time" id="edit-start-time" name="start_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Время окончания</label>
-                    <input type="time" id="edit-end-time" name="end_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Цена (₽)</label>
-                    <input type="number" id="edit-price" name="price" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Макс. человек</label>
-                    <input type="number" id="edit-max-people" name="max_people" min="1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                </div>
+                <div><label class="block text-gray-700 font-semibold mb-2">Время начала</label><input type="time" id="edit-start-time" name="start_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
+                <div><label class="block text-gray-700 font-semibold mb-2">Время окончания</label><input type="time" id="edit-end-time" name="end_time" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
-                    Сохранить
-                </button>
-                <button type="button" onclick="hideEditModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">
-                    Отмена
-                </button>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Сохранить</button>
+                <button type="button" onclick="hideEditModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">Отмена</button>
             </div>
         </form>
     </div>
@@ -107,92 +67,140 @@
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Время</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Прогулка</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Цена</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Макс. человек</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Инструктор</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Действия</th>
             </tr>
         </thead>
-        <tbody id="slots-table-body" hx-get="/admin/api/slots" hx-trigger="load" hx-swap="innerHTML" class="divide-y divide-gray-200">
-            <tr>
-                <td colspan="6" class="px-6 py-4 text-center text-gray-500">Загрузка...</td>
-            </tr>
-        </tbody>
+        <tbody id="slots-table-body" hx-get="/admin/api/slots" hx-trigger="load" hx-swap="innerHTML" class="divide-y divide-gray-200"><tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Загрузка...</td></tr></tbody>
     </table>
 </div>
 
 <script>
-    // Загрузить список инструкторов
-    fetch('/admin/api/instructors')
-        .then(res => res.json())
-        .then(instructors => {
-            const select = document.getElementById('instructor-select');
-            const editSelect = document.getElementById('edit-instructor');
-            instructors.forEach(instructor => {
-                const option = document.createElement('option');
-                option.value = instructor.ID;
-                option.textContent = instructor.Name;
-                select.appendChild(option);
-                
-                const editOption = document.createElement('option');
-                editOption.value = instructor.ID;
-                editOption.textContent = instructor.Name;
-                editSelect.appendChild(editOption);
-            });
-        });
+let instructors = [];
 
-    function showAddForm() {
-        document.getElementById('add-form').classList.remove('hidden');
-    }
-    function hideAddForm() {
-        document.getElementById('add-form').classList.add('hidden');
-        document.querySelector('#add-form form').reset();
-    }
-    
-    function editSlot(id) {
-        // Получить данные слота
-        fetch(`/admin/api/slots/${id}`)
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('edit-id').value = data.ID;
-                document.getElementById('edit-date').value = data.Date.split('T')[0];
-                document.getElementById('edit-start-time').value = data.StartTime.substring(0, 5);
-                document.getElementById('edit-end-time').value = data.EndTime.substring(0, 5);
-                document.getElementById('edit-price').value = data.Price;
-                document.getElementById('edit-max-people').value = data.MaxPeople;
-                document.getElementById('edit-instructor').value = data.InstructorID;
-                document.getElementById('edit-modal').classList.remove('hidden');
-            });
-    }
-    
-    function hideEditModal() {
-        document.getElementById('edit-modal').classList.add('hidden');
-    }
-    
-    // Обработка отправки формы редактирования
-    document.getElementById('edit-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var id = document.getElementById('edit-id').value;
-        var formData = new FormData(this);
-        var data = {
-            date: formData.get('date'),
-            start_time: formData.get('start_time'),
-            end_time: formData.get('end_time'),
-            price: parseInt(formData.get('price')),
-            max_people: parseInt(formData.get('max_people')),
-            instructor_id: parseInt(formData.get('instructor_id'))
-        };
-        
-        fetch('/admin/api/slots/' + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
-            body: JSON.stringify(data)
-        })
-        .then(function(res) { return res.text(); })
-        .then(function(html) {
-            document.getElementById('slots-table-body').innerHTML = html;
-            hideEditModal();
-        });
+function fillInstructorSelect(selectId) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">Выберите инструктора</option>';
+    instructors.forEach(function(instructor) {
+        const option = document.createElement('option');
+        option.value = instructor.ID;
+        option.textContent = instructor.Name;
+        select.appendChild(option);
     });
+}
+
+function syncAddFormWalkTypes() {
+    const instructorSelect = document.getElementById('instructor-select');
+    const selectedInstructor = instructorSelect.value || (instructors[0] ? String(instructors[0].ID) : '');
+    if (selectedInstructor) {
+        instructorSelect.value = selectedInstructor;
+    }
+    fillWalkTypeSelect('walk-type-select', selectedInstructor);
+}
+
+function fillWalkTypeSelect(selectId, instructorId, selectedWalkTypeId) {
+    const select = document.getElementById(selectId);
+    const inst = instructors.find(i => i.ID === parseInt(instructorId));
+    select.innerHTML = '';
+    const hint = document.getElementById('walk-type-hint');
+    const submitBtn = document.getElementById('create-slot-submit');
+
+    function setCreateState(disabled, text, danger) {
+        if (hint) {
+            hint.textContent = text || '';
+            hint.className = 'text-sm mt-2 ' + (danger ? 'text-red-600' : 'text-gray-500');
+        }
+        if (submitBtn) {
+            submitBtn.disabled = disabled;
+            submitBtn.classList.toggle('opacity-50', disabled);
+            submitBtn.classList.toggle('cursor-not-allowed', disabled);
+        }
+    }
+
+    if (!inst || !inst.WalkTypes || inst.WalkTypes.length === 0) {
+        select.innerHTML = '<option value="">Нет типов прогулок</option>';
+        if (selectId === 'walk-type-select') {
+            setCreateState(true, 'У выбранного инструктора нет типов прогулок. Добавьте тип прогулки в разделе «Типы прогулок».', true);
+        }
+        return;
+    }
+
+    inst.WalkTypes.forEach(function(wt) {
+        const option = document.createElement('option');
+        option.value = wt.ID;
+        option.textContent = wt.Name + ' (' + wt.Price + ' ₽, до ' + wt.MaxPeople + ' чел.)';
+        if (selectedWalkTypeId && parseInt(selectedWalkTypeId) === wt.ID) option.selected = true;
+        select.appendChild(option);
+    });
+
+    if (selectId === 'walk-type-select') {
+        setCreateState(false, 'Выберите тип прогулки для создания слота.', false);
+    }
+}
+
+fetch('/admin/api/instructors').then(res => res.json()).then(data => {
+    instructors = data;
+    fillInstructorSelect('instructor-select');
+    fillInstructorSelect('edit-instructor');
+    syncAddFormWalkTypes();
+});
+
+document.getElementById('instructor-select').addEventListener('change', function() {
+    fillWalkTypeSelect('walk-type-select', this.value);
+});
+
+document.getElementById('edit-instructor').addEventListener('change', function() {
+    fillWalkTypeSelect('edit-walk-type', this.value);
+});
+
+function showAddForm() {
+    document.getElementById('add-form').classList.remove('hidden');
+    syncAddFormWalkTypes();
+}
+
+function hideAddForm() {
+    document.getElementById('add-form').classList.add('hidden');
+    document.querySelector('#add-form form').reset();
+    syncAddFormWalkTypes();
+}
+
+function editSlot(id) {
+    fetch(`/admin/api/slots/${id}`).then(res => res.json()).then(data => {
+        document.getElementById('edit-id').value = data.ID;
+        document.getElementById('edit-date').value = data.Date.split('T')[0];
+        document.getElementById('edit-start-time').value = data.StartTime.substring(0, 5);
+        document.getElementById('edit-end-time').value = data.EndTime.substring(0, 5);
+        document.getElementById('edit-instructor').value = data.InstructorID;
+        fillWalkTypeSelect('edit-walk-type', data.InstructorID, data.WalkTypeID);
+        document.getElementById('edit-modal').classList.remove('hidden');
+    });
+}
+
+function hideEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+document.getElementById('edit-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var id = document.getElementById('edit-id').value;
+    var formData = new FormData(this);
+    var data = {
+        date: formData.get('date'),
+        start_time: formData.get('start_time'),
+        end_time: formData.get('end_time'),
+        instructor_id: parseInt(formData.get('instructor_id')),
+        walk_type_id: parseInt(formData.get('walk_type_id'))
+    };
+
+    fetch('/admin/api/slots/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
+        body: JSON.stringify(data)
+    }).then(res => res.text()).then(html => {
+        document.getElementById('slots-table-body').innerHTML = html;
+        hideEditModal();
+    });
+});
 </script>
 {{end}}

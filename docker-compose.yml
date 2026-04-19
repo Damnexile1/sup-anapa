@@ -37,6 +37,7 @@ services:
     volumes:
       - ./web:/app/web
       - ./migrations:/app/migrations
+      - ./logs:/app/logs
     restart: unless-stopped
 
 networks:
