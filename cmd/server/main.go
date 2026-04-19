@@ -56,6 +56,7 @@ func main() {
 	handlers.Init(cfg.SessionSecret, authService)
 	handlers.SetUserAuthService(userAuthService)
 	handlers.SetRepositories(bookingRepo, instructorRepo, slotRepo)
+	handlers.SetUserRepository(userRepo)
 
 	// Инициализация middleware
 	middleware.InitAuth(handlers.GetStore())

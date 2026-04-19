@@ -210,15 +210,19 @@ function submitBookingForm(e) {
     })
     .then(function(res) {
         if (!res.ok) {
+            if (res.status === 401) {
+                throw new Error('Для бронирования нужно войти в личный кабинет');
+            }
             return res.text().then(function(err) { throw new Error(err || 'Ошибка при бронировании'); });
         }
         return res.json();
     })
     .then(function(result) {
         document.getElementById('booking-result').innerHTML = '<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">' +
-            '<p class="font-semibold">Бронирование отправлено!</p>' +
+            '<p class="font-semibold">Отлично! Вы успешно забронировали прогулку 🎉</p>' +
             '<p class="text-sm"><strong>Номер бронирования:</strong> #' + result.ID + '</p>' +
             '<p class="text-sm"><strong>Маршрут:</strong> ' + bookingState.walkType.Name + '</p>' +
+            '<p class="text-sm">Статус и детали доступны в вашем <a href="/lk" class="underline font-semibold">личном кабинете</a>.</p>' +
             '<p class="text-sm mt-2"><strong>Статус:</strong> Ожидает подтверждения администратором в течение ' + result.hold_minutes + ' минут.</p>' +
             '</div>';
         form.reset();

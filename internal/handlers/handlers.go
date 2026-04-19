@@ -18,6 +18,7 @@ var (
 	store          *sessions.CookieStore
 	authSvc        *services.AuthService
 	userAuthSvc    *services.UserAuthService
+	userRepo       *repository.UserRepository
 	bookingRepo    *repository.BookingRepository
 	instructorRepo *repository.InstructorRepository
 	slotRepo       *repository.SlotRepository
@@ -36,6 +37,10 @@ func SetRepositories(booking *repository.BookingRepository, instructor *reposito
 	bookingRepo = booking
 	instructorRepo = instructor
 	slotRepo = slot
+}
+
+func SetUserRepository(repo *repository.UserRepository) {
+	userRepo = repo
 }
 
 func GetStore() *sessions.CookieStore {
@@ -180,6 +185,13 @@ func UserCabinet(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
+	userSession, _ := store.Get(r, "user-session")
+	userID, ok := userSession.Values["user_id"].(int)
+	if !ok || userID < 1 {
+		http.Error(w, "Для бронирования нужно войти в аккаунт", http.StatusUnauthorized)
+		return
+	}
+
 	var bookingData struct {
 		SlotID      int    `json:"slot_id"`
 		ClientName  string `json:"client_name"`
@@ -202,16 +214,14 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bookingData.ClientName == "" {
-		http.Error(w, "Имя клиента обязательно", http.StatusBadRequest)
-		return
-	}
-	if bookingData.ClientPhone == "" {
-		http.Error(w, "Телефон обязателен", http.StatusBadRequest)
-		return
-	}
 	if bookingData.PeopleCount < 1 {
 		http.Error(w, "Количество человек должно быть больше 0", http.StatusBadRequest)
+		return
+	}
+
+	user, err := userRepo.GetByID(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "Не удалось получить данные пользователя", http.StatusUnauthorized)
 		return
 	}
 
@@ -240,15 +250,12 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	booking := &models.Booking{
 		SlotID:      bookingData.SlotID,
-		ClientName:  bookingData.ClientName,
-		ClientPhone: bookingData.ClientPhone,
+		UserID:      userID,
+		ClientName:  user.Username,
+		ClientPhone: user.Phone,
 		ClientEmail: bookingData.ClientEmail,
 		PeopleCount: bookingData.PeopleCount,
 		Status:      "pending",
-	}
-	userSession, _ := store.Get(r, "user-session")
-	if userID, ok := userSession.Values["user_id"].(int); ok && userID > 0 {
-		booking.UserID = userID
 	}
 
 	if err := bookingRepo.Create(r.Context(), booking); err != nil {
