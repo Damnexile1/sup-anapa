@@ -42,6 +42,7 @@ type Slot struct {
 type Booking struct {
 	ID          int       `db:"id"`
 	SlotID      int       `db:"slot_id"`
+	UserID      int       `db:"user_id"`
 	ClientName  string    `db:"client_name"`
 	ClientPhone string    `db:"client_phone"`
 	ClientEmail string    `db:"client_email"`
@@ -55,6 +56,14 @@ type Admin struct {
 	ID           int       `db:"id"`
 	Username     string    `db:"username"`
 	PasswordHash string    `db:"password_hash"`
+	CreatedAt    time.Time `db:"created_at"`
+}
+
+type User struct {
+	ID           int       `db:"id"`
+	Username     string    `db:"username"`
+	PasswordHash string    `db:"password_hash"`
+	Phone        string    `db:"phone"`
 	CreatedAt    time.Time `db:"created_at"`
 }
 

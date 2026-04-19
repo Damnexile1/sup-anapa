@@ -34,10 +34,20 @@ CREATE TABLE slots (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create users table
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create bookings table
 CREATE TABLE bookings (
     id SERIAL PRIMARY KEY,
     slot_id INTEGER NOT NULL REFERENCES slots(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     client_name VARCHAR(255) NOT NULL,
     client_phone VARCHAR(50) NOT NULL,
     client_email VARCHAR(255),
@@ -71,5 +81,6 @@ CREATE TABLE weather_cache (
 CREATE INDEX idx_slots_date ON slots(date);
 CREATE INDEX idx_walk_types_instructor_id ON walk_types(instructor_id);
 CREATE INDEX idx_bookings_slot_id ON bookings(slot_id);
+CREATE INDEX idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX idx_bookings_status ON bookings(status);
 CREATE INDEX idx_weather_cache_date ON weather_cache(date);

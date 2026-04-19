@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
@@ -17,6 +18,8 @@ import (
 var (
 	store          *sessions.CookieStore
 	authSvc        *services.AuthService
+	userAuthSvc    *services.UserAuthService
+	userRepo       *repository.UserRepository
 	bookingRepo    *repository.BookingRepository
 	instructorRepo *repository.InstructorRepository
 	slotRepo       *repository.SlotRepository
@@ -27,10 +30,18 @@ func Init(sessionSecret string, authService *services.AuthService) {
 	authSvc = authService
 }
 
+func SetUserAuthService(userAuth *services.UserAuthService) {
+	userAuthSvc = userAuth
+}
+
 func SetRepositories(booking *repository.BookingRepository, instructor *repository.InstructorRepository, slot *repository.SlotRepository) {
 	bookingRepo = booking
 	instructorRepo = instructor
 	slotRepo = slot
+}
+
+func SetUserRepository(repo *repository.UserRepository) {
+	userRepo = repo
 }
 
 func GetStore() *sessions.CookieStore {
@@ -66,6 +77,13 @@ func getTemplateData(r *http.Request, data map[string]interface{}) map[string]in
 		}
 	}
 
+	userSession, err := store.Get(r, "user-session")
+	if err == nil {
+		if username, ok := userSession.Values["username"].(string); ok {
+			data["UserUsername"] = username
+		}
+	}
+
 	return data
 }
 
@@ -94,7 +112,112 @@ func Favicon(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func UserRegisterPage(w http.ResponseWriter, r *http.Request) {
+	next := safeNextURL(r.URL.Query().Get("next"), "/booking")
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/public/user-register.html",
+	}, getTemplateData(r, map[string]interface{}{"Next": next}))
+}
+
+func UserLoginPage(w http.ResponseWriter, r *http.Request) {
+	next := safeNextURL(r.URL.Query().Get("next"), "/booking")
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/public/user-login.html",
+	}, getTemplateData(r, map[string]interface{}{"Next": next}))
+}
+
+func UserRegisterPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+	next := safeNextURL(r.FormValue("next"), "/booking")
+	user, err := userAuthSvc.Register(r.Context(), r.FormValue("username"), r.FormValue("password"), r.FormValue("phone"))
+	if err != nil {
+		data := getTemplateData(r, map[string]interface{}{
+			"Next":  next,
+			"Error": "Не удалось зарегистрироваться. Возможно, логин уже занят.",
+		})
+		renderTemplate(w, []string{
+			"web/templates/layouts/base.html",
+			"web/templates/public/user-register.html",
+		}, data)
+		return
+	}
+	session, _ := store.Get(r, "user-session")
+	session.Values["user_id"] = user.ID
+	session.Values["username"] = user.Username
+	if err := session.Save(r, w); err != nil {
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+func UserLoginPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+	next := safeNextURL(r.FormValue("next"), "/booking")
+	user, err := userAuthSvc.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
+	if err != nil {
+		data := getTemplateData(r, map[string]interface{}{
+			"Next":  next,
+			"Error": "Неверный логин или пароль",
+		})
+		renderTemplate(w, []string{
+			"web/templates/layouts/base.html",
+			"web/templates/public/user-login.html",
+		}, data)
+		return
+	}
+	session, _ := store.Get(r, "user-session")
+	session.Values["user_id"] = user.ID
+	session.Values["username"] = user.Username
+	if err := session.Save(r, w); err != nil {
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+func UserLogout(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "user-session")
+	session.Options.MaxAge = -1
+	session.Save(r, w)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func UserCabinet(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "user-session")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok || userID < 1 {
+		http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+		return
+	}
+	bookings, err := bookingRepo.GetByUserID(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "Ошибка загрузки бронирований", http.StatusInternalServerError)
+		return
+	}
+	data := getTemplateData(r, map[string]interface{}{"Bookings": bookings})
+	renderTemplate(w, []string{
+		"web/templates/layouts/base.html",
+		"web/templates/public/user-cabinet.html",
+	}, data)
+}
+
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
+	userSession, _ := store.Get(r, "user-session")
+	userID, ok := userSession.Values["user_id"].(int)
+	if !ok || userID < 1 {
+		http.Error(w, "Для бронирования нужно войти в аккаунт", http.StatusUnauthorized)
+		return
+	}
+
 	var bookingData struct {
 		SlotID      int    `json:"slot_id"`
 		ClientName  string `json:"client_name"`
@@ -117,16 +240,14 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bookingData.ClientName == "" {
-		http.Error(w, "Имя клиента обязательно", http.StatusBadRequest)
-		return
-	}
-	if bookingData.ClientPhone == "" {
-		http.Error(w, "Телефон обязателен", http.StatusBadRequest)
-		return
-	}
 	if bookingData.PeopleCount < 1 {
 		http.Error(w, "Количество человек должно быть больше 0", http.StatusBadRequest)
+		return
+	}
+
+	user, err := userRepo.GetByID(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "Не удалось получить данные пользователя", http.StatusUnauthorized)
 		return
 	}
 
@@ -155,8 +276,9 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	booking := &models.Booking{
 		SlotID:      bookingData.SlotID,
-		ClientName:  bookingData.ClientName,
-		ClientPhone: bookingData.ClientPhone,
+		UserID:      userID,
+		ClientName:  user.Username,
+		ClientPhone: user.Phone,
 		ClientEmail: bookingData.ClientEmail,
 		PeopleCount: bookingData.PeopleCount,
 		Status:      "pending",
@@ -181,6 +303,13 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
+}
+
+func safeNextURL(next, fallback string) string {
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		return fallback
+	}
+	return next
 }
 
 func AdminLogin(w http.ResponseWriter, r *http.Request) {

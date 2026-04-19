@@ -1,0 +1,37 @@
+{{define "title"}}Личный кабинет - SUP Anapa{{end}}
+
+{{define "content"}}
+<div class="max-w-5xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Мои бронирования</h1>
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2 text-left">ID</th>
+                    <th class="px-4 py-2 text-left">Слот</th>
+                    <th class="px-4 py-2 text-left">Людей</th>
+                    <th class="px-4 py-2 text-left">Статус</th>
+                    <th class="px-4 py-2 text-left">Дата создания</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{if .Bookings}}
+                    {{range .Bookings}}
+                    <tr class="border-t">
+                        <td class="px-4 py-2">#{{.ID}}</td>
+                        <td class="px-4 py-2">Слот #{{.SlotID}}</td>
+                        <td class="px-4 py-2">{{.PeopleCount}}</td>
+                        <td class="px-4 py-2">
+                            {{if eq .Status "confirmed"}}<span class="text-green-600 font-semibold">Активна</span>{{else if eq .Status "cancelled"}}<span class="text-red-600 font-semibold">Отклонена</span>{{else}}<span class="text-yellow-600 font-semibold">Ожидает</span>{{end}}
+                        </td>
+                        <td class="px-4 py-2">{{.CreatedAt.Format "02.01.2006 15:04"}}</td>
+                    </tr>
+                    {{end}}
+                {{else}}
+                    <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">У вас пока нет бронирований</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}

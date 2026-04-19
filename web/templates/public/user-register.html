@@ -1,0 +1,18 @@
+{{define "title"}}Регистрация - SUP Anapa{{end}}
+
+{{define "content"}}
+<div class="max-w-md mx-auto bg-white rounded-lg shadow p-6">
+    <h1 class="text-2xl font-bold mb-4">Регистрация пользователя</h1>
+    {{if .Error}}
+    <div class="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded mb-4">{{.Error}}</div>
+    {{end}}
+    <form method="post" action="/user/register" class="space-y-4">
+        <input type="hidden" name="next" value="{{.Next}}">
+        <div><label class="block mb-1">Логин</label><input name="username" required class="w-full border rounded px-3 py-2"></div>
+        <div><label class="block mb-1">Пароль</label><input type="password" name="password" required class="w-full border rounded px-3 py-2"></div>
+        <div><label class="block mb-1">Телефон</label><input name="phone" required class="w-full border rounded px-3 py-2"></div>
+        <button class="w-full bg-blue-600 text-white rounded py-2">Зарегистрироваться</button>
+    </form>
+    <p class="text-sm text-gray-600 mt-4">Уже есть аккаунт? <a class="underline" href="/user/login?next={{.Next}}">Войти</a></p>
+</div>
+{{end}}

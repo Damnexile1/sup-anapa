@@ -42,6 +42,7 @@ func main() {
 	instructorRepo := repository.NewInstructorRepository(pool)
 	slotRepo := repository.NewSlotRepository(pool)
 	walkTypeRepo := repository.NewWalkTypeRepository(pool)
+	userRepo := repository.NewUserRepository(pool)
 	adminRepo := repository.NewAdminRepository(pool)
 
 	// Инициализация сервисов
@@ -49,10 +50,13 @@ func main() {
 	bookingService := services.NewBookingService(bookingRepo, notificationService)
 	weatherService := services.NewWeatherService(cfg.WeatherAPIKey)
 	authService := services.NewAuthService(adminRepo)
+	userAuthService := services.NewUserAuthService(userRepo)
 
 	// Инициализация handlers
 	handlers.Init(cfg.SessionSecret, authService)
+	handlers.SetUserAuthService(userAuthService)
 	handlers.SetRepositories(bookingRepo, instructorRepo, slotRepo)
+	handlers.SetUserRepository(userRepo)
 
 	// Инициализация middleware
 	middleware.InitAuth(handlers.GetStore())
@@ -82,6 +86,12 @@ func main() {
 	r.Get("/", handlers.Home)
 	r.Get("/booking", handlers.BookingPage)
 	r.Get("/booking/", handlers.BookingPage)
+	r.Get("/user/register", handlers.UserRegisterPage)
+	r.Post("/user/register", handlers.UserRegisterPost)
+	r.Get("/user/login", handlers.UserLoginPage)
+	r.Post("/user/login", handlers.UserLoginPost)
+	r.Get("/user/logout", handlers.UserLogout)
+	r.Get("/lk", handlers.UserCabinet)
 	r.Get("/instructors", handlers.InstructorsPage)
 	r.Post("/booking", handlers.CreateBooking)
 	r.Post("/booking/", handlers.CreateBooking)
