@@ -211,7 +211,8 @@ function submitBookingForm(e) {
     .then(function(res) {
         if (!res.ok) {
             if (res.status === 401) {
-                throw new Error('Для бронирования нужно войти в личный кабинет');
+                window.location.href = '/user/register?next=/booking';
+                return Promise.reject(new Error('redirecting'));
             }
             return res.text().then(function(err) { throw new Error(err || 'Ошибка при бронировании'); });
         }
@@ -229,6 +230,7 @@ function submitBookingForm(e) {
         selectWalkType(bookingState.walkType);
     })
     .catch(function(err) {
+        if (err && err.message === 'redirecting') return;
         document.getElementById('booking-result').innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">' +
             '<p class="font-semibold">Ошибка при создании бронирования</p>' +
             '<p class="text-sm">' + (err.message || 'Пожалуйста, попробуйте еще раз') + '</p></div>';

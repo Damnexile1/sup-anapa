@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
@@ -112,17 +113,19 @@ func Favicon(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserRegisterPage(w http.ResponseWriter, r *http.Request) {
+	next := safeNextURL(r.URL.Query().Get("next"), "/booking")
 	renderTemplate(w, []string{
 		"web/templates/layouts/base.html",
 		"web/templates/public/user-register.html",
-	}, getTemplateData(r, nil))
+	}, getTemplateData(r, map[string]interface{}{"Next": next}))
 }
 
 func UserLoginPage(w http.ResponseWriter, r *http.Request) {
+	next := safeNextURL(r.URL.Query().Get("next"), "/booking")
 	renderTemplate(w, []string{
 		"web/templates/layouts/base.html",
 		"web/templates/public/user-login.html",
-	}, getTemplateData(r, nil))
+	}, getTemplateData(r, map[string]interface{}{"Next": next}))
 }
 
 func UserRegisterPost(w http.ResponseWriter, r *http.Request) {
@@ -130,12 +133,20 @@ func UserRegisterPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
-	_, err := userAuthSvc.Register(r.Context(), r.FormValue("username"), r.FormValue("password"), r.FormValue("phone"))
+	next := safeNextURL(r.FormValue("next"), "/booking")
+	user, err := userAuthSvc.Register(r.Context(), r.FormValue("username"), r.FormValue("password"), r.FormValue("phone"))
 	if err != nil {
 		http.Error(w, "Не удалось зарегистрироваться. Возможно, логин уже занят.", http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+	session, _ := store.Get(r, "user-session")
+	session.Values["user_id"] = user.ID
+	session.Values["username"] = user.Username
+	if err := session.Save(r, w); err != nil {
+		http.Error(w, "Session error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 func UserLoginPost(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +154,7 @@ func UserLoginPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
+	next := safeNextURL(r.FormValue("next"), "/booking")
 	user, err := userAuthSvc.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
 		http.Error(w, "Неверный логин или пароль", http.StatusUnauthorized)
@@ -155,7 +167,7 @@ func UserLoginPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Session error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/lk", http.StatusSeeOther)
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 func UserLogout(w http.ResponseWriter, r *http.Request) {
@@ -277,6 +289,13 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
+}
+
+func safeNextURL(next, fallback string) string {
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		return fallback
+	}
+	return next
 }
 
 func AdminLogin(w http.ResponseWriter, r *http.Request) {
