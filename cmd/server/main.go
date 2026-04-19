@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"sup-anapa/internal/config"
 	"sup-anapa/internal/handlers"
+	"sup-anapa/internal/logger"
 	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
@@ -18,19 +18,24 @@ import (
 
 func main() {
 	cfg := config.Load()
+	appLogger, err := logger.Init(cfg.LogFile)
+	if err != nil {
+		panic(err)
+	}
+	defer appLogger.Close()
 
 	// Подключение к БД
 	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("Unable to connect to database:", err)
+		appLogger.Fatal("Unable to connect to database", map[string]interface{}{"error": err.Error()})
 	}
 	defer pool.Close()
 
 	// Проверка подключения
 	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatal("Unable to ping database:", err)
+		appLogger.Fatal("Unable to ping database", map[string]interface{}{"error": err.Error()})
 	}
-	log.Println("✓ Successfully connected to database")
+	appLogger.Info("Successfully connected to database", nil)
 
 	// Инициализация репозиториев
 	bookingRepo := repository.NewBookingRepository(pool)
@@ -144,16 +149,16 @@ func main() {
 			ctx := context.Background()
 			n, err := slotRepo.ExpireHolds(ctx)
 			if err != nil {
-				log.Printf("Error expiring slot holds: %v", err)
+				appLogger.Error("Error expiring slot holds", map[string]interface{}{"error": err.Error()})
 			} else if n > 0 {
-				log.Printf("Expired %d pending slot holds", n)
+				appLogger.Info("Expired pending slot holds", map[string]interface{}{"count": n})
 			}
 		}
 	}()
 
 	addr := ":" + cfg.Port
-	log.Printf("✓ Server starting on %s", addr)
+	appLogger.Info("Server starting", map[string]interface{}{"addr": addr, "log_file": cfg.LogFile})
 	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatal(err)
+		appLogger.Fatal("ListenAndServe failed", map[string]interface{}{"error": err.Error()})
 	}
 }
