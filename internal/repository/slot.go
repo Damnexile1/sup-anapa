@@ -251,10 +251,10 @@ func (r *SlotRepository) ExpireHolds(ctx context.Context) (int, error) {
 }
 
 func (r *SlotRepository) GetByIDWithLock(ctx context.Context, id int) (*models.Slot, error) {
-	query := `SELECT ` + slotSelectColumns + `
+	query := `SELECT s.id, s.date, s.start_time, s.end_time, s.price, s.max_people, s.instructor_id, s.walk_type_id, '' AS walk_type_name, s.status, s.hold_expires_at, s.created_at, s.updated_at
 			  FROM slots s
-			  LEFT JOIN walk_types wt ON wt.id = s.walk_type_id
-			  WHERE s.id = $1 FOR UPDATE`
+			  WHERE s.id = $1
+			  FOR UPDATE OF s`
 
 	slot := &models.Slot{}
 	err := scanSlot(r.db.QueryRow(ctx, query, id), slot)
