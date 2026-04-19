@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sup-anapa/internal/middleware"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
 	"sup-anapa/internal/services"
@@ -104,7 +105,8 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("CreateBooking: incoming request slot_id=%d people=%d client=%q", bookingData.SlotID, bookingData.PeopleCount, bookingData.ClientName)
+	correlationID := middleware.GetCorrelationID(r.Context())
+	log.Printf("CreateBooking: correlation_id=%s incoming request slot_id=%d people=%d client=%q", correlationID, bookingData.SlotID, bookingData.PeopleCount, bookingData.ClientName)
 
 	if bookingData.SlotID < 1 {
 		http.Error(w, "Выберите слот для бронирования", http.StatusBadRequest)
@@ -126,7 +128,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	slot, err := slotRepo.GetByIDWithLock(r.Context(), bookingData.SlotID)
 	if err != nil {
-		log.Printf("CreateBooking: slot not found slot_id=%d err=%v", bookingData.SlotID, err)
+		log.Printf("CreateBooking: correlation_id=%s slot not found slot_id=%d err=%v", correlationID, bookingData.SlotID, err)
 		http.Error(w, "Слот не найден", http.StatusNotFound)
 		return
 	}
@@ -142,7 +144,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	holdExpires := time.Now().Add(20 * time.Minute)
 	if err := slotRepo.SetPending(r.Context(), bookingData.SlotID, holdExpires); err != nil {
-		log.Printf("Error setting slot pending: %v", err)
+		log.Printf("CreateBooking: correlation_id=%s error setting slot pending: %v", correlationID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -158,12 +160,12 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	if err := bookingRepo.Create(r.Context(), booking); err != nil {
 		slotRepo.SetAvailable(r.Context(), bookingData.SlotID)
-		log.Printf("Error creating booking: %v", err)
+		log.Printf("CreateBooking: correlation_id=%s error creating booking: %v", correlationID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("CreateBooking: created booking_id=%d slot_id=%d status=%s", booking.ID, booking.SlotID, booking.Status)
+	log.Printf("CreateBooking: correlation_id=%s created booking_id=%d slot_id=%d status=%s", correlationID, booking.ID, booking.SlotID, booking.Status)
 
 	response := map[string]interface{}{
 		"ID":           booking.ID,

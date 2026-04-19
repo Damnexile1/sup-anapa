@@ -63,6 +63,8 @@ func main() {
 	_ = weatherService
 
 	r := chi.NewRouter()
+	r.Use(chimiddleware.RequestID)
+	r.Use(middleware.CorrelationID)
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 
