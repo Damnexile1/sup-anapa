@@ -182,8 +182,17 @@ function submitBookingForm(e) {
     e.preventDefault();
     var form = e.target;
     var formData = new FormData(form);
+    var slotId = parseInt(formData.get('slot_id'));
+
+    if (!bookingState.slot || !Number.isFinite(slotId) || slotId < 1) {
+        document.getElementById('booking-result').innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">' +
+            '<p class="font-semibold">Выберите время прогулки</p>' +
+            '<p class="text-sm">Сначала выберите инструктора, прогулку и доступный слот.</p></div>';
+        return;
+    }
+
     var data = {
-        slot_id: parseInt(formData.get('slot_id')),
+        slot_id: slotId,
         client_name: formData.get('client_name'),
         client_phone: formData.get('client_phone'),
         client_email: formData.get('client_email'),

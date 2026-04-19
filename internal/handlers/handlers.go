@@ -99,7 +99,15 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&bookingData); err != nil {
+		log.Printf("CreateBooking: invalid request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("CreateBooking: incoming request slot_id=%d people=%d client=%q", bookingData.SlotID, bookingData.PeopleCount, bookingData.ClientName)
+
+	if bookingData.SlotID < 1 {
+		http.Error(w, "Выберите слот для бронирования", http.StatusBadRequest)
 		return
 	}
 
@@ -118,6 +126,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	slot, err := slotRepo.GetByIDWithLock(r.Context(), bookingData.SlotID)
 	if err != nil {
+		log.Printf("CreateBooking: slot not found slot_id=%d err=%v", bookingData.SlotID, err)
 		http.Error(w, "Слот не найден", http.StatusNotFound)
 		return
 	}
@@ -153,6 +162,8 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("CreateBooking: created booking_id=%d slot_id=%d status=%s", booking.ID, booking.SlotID, booking.Status)
 
 	response := map[string]interface{}{
 		"ID":           booking.ID,
