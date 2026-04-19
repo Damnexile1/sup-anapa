@@ -91,6 +91,15 @@ function fillInstructorSelect(selectId) {
     });
 }
 
+function syncAddFormWalkTypes() {
+    const instructorSelect = document.getElementById('instructor-select');
+    const selectedInstructor = instructorSelect.value || (instructors[0] ? String(instructors[0].ID) : '');
+    if (selectedInstructor) {
+        instructorSelect.value = selectedInstructor;
+    }
+    fillWalkTypeSelect('walk-type-select', selectedInstructor);
+}
+
 function fillWalkTypeSelect(selectId, instructorId, selectedWalkTypeId) {
     const select = document.getElementById(selectId);
     const inst = instructors.find(i => i.ID === parseInt(instructorId));
@@ -112,6 +121,7 @@ fetch('/admin/api/instructors').then(res => res.json()).then(data => {
     instructors = data;
     fillInstructorSelect('instructor-select');
     fillInstructorSelect('edit-instructor');
+    syncAddFormWalkTypes();
 });
 
 document.getElementById('instructor-select').addEventListener('change', function() {
@@ -122,8 +132,16 @@ document.getElementById('edit-instructor').addEventListener('change', function()
     fillWalkTypeSelect('edit-walk-type', this.value);
 });
 
-function showAddForm() { document.getElementById('add-form').classList.remove('hidden'); }
-function hideAddForm() { document.getElementById('add-form').classList.add('hidden'); document.querySelector('#add-form form').reset(); }
+function showAddForm() {
+    document.getElementById('add-form').classList.remove('hidden');
+    syncAddFormWalkTypes();
+}
+
+function hideAddForm() {
+    document.getElementById('add-form').classList.add('hidden');
+    document.querySelector('#add-form form').reset();
+    syncAddFormWalkTypes();
+}
 
 function editSlot(id) {
     fetch(`/admin/api/slots/${id}`).then(res => res.json()).then(data => {
