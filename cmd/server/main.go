@@ -65,6 +65,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(middleware.CorrelationID)
+	r.Use(middleware.AccessLog)
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 
@@ -75,8 +76,13 @@ func main() {
 	// Public routes
 	r.Get("/", handlers.Home)
 	r.Get("/booking", handlers.BookingPage)
+	r.Get("/booking/", handlers.BookingPage)
 	r.Get("/instructors", handlers.InstructorsPage)
 	r.Post("/booking", handlers.CreateBooking)
+	r.Post("/booking/", handlers.CreateBooking)
+	r.Post("/api/booking", handlers.CreateBooking)
+	r.Post("/api/booking/", handlers.CreateBooking)
+	r.Get("/favicon.ico", handlers.Favicon)
 
 	// Public API (no auth required)
 	r.Get("/api/instructors", instructorHandler.List)

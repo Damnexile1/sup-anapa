@@ -90,6 +90,10 @@ func InstructorsPage(w http.ResponseWriter, r *http.Request) {
 	}, getTemplateData(r, nil))
 }
 
+func Favicon(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	var bookingData struct {
 		SlotID      int    `json:"slot_id"`
