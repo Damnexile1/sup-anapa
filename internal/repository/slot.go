@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 	"sup-anapa/internal/models"
 	"time"
@@ -22,21 +23,40 @@ const slotSelectColumns = `s.id, s.date, s.start_time, s.end_time, s.price, s.ma
 func scanSlot(scanner interface {
 	Scan(dest ...interface{}) error
 }, slot *models.Slot) error {
-	return scanner.Scan(
+	var instructorID sql.NullInt64
+	var walkTypeID sql.NullInt64
+
+	if err := scanner.Scan(
 		&slot.ID,
 		&slot.Date,
 		&slot.StartTime,
 		&slot.EndTime,
 		&slot.Price,
 		&slot.MaxPeople,
-		&slot.InstructorID,
-		&slot.WalkTypeID,
+		&instructorID,
+		&walkTypeID,
 		&slot.WalkTypeName,
 		&slot.Status,
 		&slot.HoldExpiresAt,
 		&slot.CreatedAt,
 		&slot.UpdatedAt,
-	)
+	); err != nil {
+		return err
+	}
+
+	if instructorID.Valid {
+		slot.InstructorID = int(instructorID.Int64)
+	} else {
+		slot.InstructorID = 0
+	}
+
+	if walkTypeID.Valid {
+		slot.WalkTypeID = int(walkTypeID.Int64)
+	} else {
+		slot.WalkTypeID = 0
+	}
+
+	return nil
 }
 
 func (r *SlotRepository) Create(ctx context.Context, slot *models.Slot) error {
