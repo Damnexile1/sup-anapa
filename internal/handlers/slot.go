@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sup-anapa/internal/models"
 	"sup-anapa/internal/repository"
 	"time"
@@ -153,7 +154,7 @@ func (h *SlotHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.repo.Create(r.Context(), &slot); err != nil {
 		log.Printf("Error creating slot: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.writeSlotPersistenceError(w, err)
 		return
 	}
 
@@ -211,7 +212,7 @@ func (h *SlotHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.repo.Update(r.Context(), &slot); err != nil {
 		log.Printf("Error updating slot: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.writeSlotPersistenceError(w, err)
 		return
 	}
 
@@ -247,4 +248,19 @@ func (h *SlotHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderSlotsList(w, slots)
+}
+
+func (h *SlotHandler) writeSlotPersistenceError(w http.ResponseWriter, err error) {
+	msg := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(msg, "walk_type_id"), strings.Contains(msg, "foreign key"):
+		http.Error(w, "Некорректный тип прогулки. Обновите страницу и выберите тип прогулки заново.", http.StatusBadRequest)
+	case strings.Contains(msg, "start_time"), strings.Contains(msg, "end_time"), strings.Contains(msg, "date"):
+		http.Error(w, "Проверьте дату и время слота.", http.StatusBadRequest)
+	case strings.Contains(msg, "column"), strings.Contains(msg, "does not exist"), strings.Contains(msg, "relation"):
+		http.Error(w, "Структура БД устарела. Пересоберите контейнер и примените миграции.", http.StatusInternalServerError)
+	default:
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
