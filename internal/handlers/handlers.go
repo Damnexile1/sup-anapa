@@ -126,6 +126,11 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if bookingData.PeopleCount > slot.MaxPeople {
+		http.Error(w, "Слишком много человек для выбранной прогулки", http.StatusBadRequest)
+		return
+	}
+
 	holdExpires := time.Now().Add(20 * time.Minute)
 	if err := slotRepo.SetPending(r.Context(), bookingData.SlotID, holdExpires); err != nil {
 		log.Printf("Error setting slot pending: %v", err)

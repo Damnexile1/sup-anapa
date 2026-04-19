@@ -5,53 +5,45 @@
     <h1 class="text-4xl font-bold text-gray-800 mb-8">Забронировать прогулку</h1>
 
     <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-        <h2 class="text-2xl font-semibold mb-4">Выберите дату и время</h2>
-        <div id="slots-container" class="space-y-4">
-            <!-- Slots will be loaded here -->
-        </div>
+        <h2 class="text-2xl font-semibold mb-4">Шаг 1. Выберите инструктора</h2>
+        <div id="booking-instructors" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    </div>
+
+    <div id="walk-type-step" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Шаг 2. Выберите тип прогулки</h2>
+        <div id="walk-types-container" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    </div>
+
+    <div id="slot-step" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Шаг 3. Выберите дату и время</h2>
+        <div id="slots-container" class="space-y-4"></div>
     </div>
 
     <div id="booking-form-container" class="hidden">
         <div class="bg-white rounded-lg shadow-lg p-6">
-            <h2 class="text-2xl font-semibold mb-4">Детали бронирования</h2>
-
-            <div id="weather-info" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <!-- Weather info will be loaded here -->
-            </div>
+            <h2 class="text-2xl font-semibold mb-4">Шаг 4. Детали бронирования</h2>
+            <div id="weather-info" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6"></div>
 
             <form id="booking-form" class="space-y-4">
                 <input type="hidden" name="slot_id" id="selected-slot-id">
-
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Ваше имя</label>
-                    <input type="text" name="client_name" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="text" name="client_name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 </div>
-
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Телефон</label>
-                    <input type="tel" name="client_phone" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="tel" name="client_phone" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 </div>
-
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Email (необязательно)</label>
-                    <input type="email" name="client_email"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="email" name="client_email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 </div>
-
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Количество человек</label>
-                    <input type="number" name="people_count" value="1" min="1" id="people-count" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="number" name="people_count" value="1" min="1" id="people-count" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 </div>
-
-                <button type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200">
-                    Забронировать
-                </button>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200">Забронировать</button>
             </form>
-
             <div id="booking-result" class="mt-4"></div>
         </div>
     </div>

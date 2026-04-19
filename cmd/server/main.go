@@ -36,6 +36,7 @@ func main() {
 	bookingRepo := repository.NewBookingRepository(pool)
 	instructorRepo := repository.NewInstructorRepository(pool)
 	slotRepo := repository.NewSlotRepository(pool)
+	walkTypeRepo := repository.NewWalkTypeRepository(pool)
 	adminRepo := repository.NewAdminRepository(pool)
 
 	// Инициализация сервисов
@@ -53,7 +54,8 @@ func main() {
 
 	// Инициализация API handlers
 	instructorHandler := handlers.NewInstructorHandler(instructorRepo)
-	slotHandler := handlers.NewSlotHandler(slotRepo, instructorRepo)
+	slotHandler := handlers.NewSlotHandler(slotRepo, instructorRepo, walkTypeRepo)
+	walkTypeHandler := handlers.NewWalkTypeHandler(walkTypeRepo)
 	bookingHandler := handlers.NewBookingHandler(bookingRepo, slotRepo, instructorRepo)
 
 	// TODO: Передать сервисы в handlers
@@ -77,6 +79,7 @@ func main() {
 	// Public API (no auth required)
 	r.Get("/api/instructors", instructorHandler.List)
 	r.Get("/api/slots", slotHandler.List)
+	r.Get("/api/instructors/{id}/walk-types", walkTypeHandler.ListByInstructor)
 
 	// Admin routes
 	r.Route("/admin", func(r chi.Router) {
@@ -99,6 +102,12 @@ func main() {
 				r.Get("/{id}", instructorHandler.Get)
 				r.Put("/{id}", instructorHandler.Update)
 				r.Delete("/{id}", instructorHandler.Delete)
+				r.Get("/{id}/walk-types", walkTypeHandler.ListByInstructor)
+			})
+
+			r.Route("/api/walk-types", func(r chi.Router) {
+				r.Post("/", walkTypeHandler.Create)
+				r.Delete("/{id}", walkTypeHandler.Delete)
 			})
 
 			r.Route("/api/slots", func(r chi.Router) {

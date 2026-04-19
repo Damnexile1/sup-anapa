@@ -9,6 +9,17 @@ CREATE TABLE instructors (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create walk types table
+CREATE TABLE walk_types (
+    id SERIAL PRIMARY KEY,
+    instructor_id INTEGER NOT NULL REFERENCES instructors(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    price INTEGER NOT NULL,
+    max_people INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create slots table
 CREATE TABLE slots (
     id SERIAL PRIMARY KEY,
@@ -18,6 +29,7 @@ CREATE TABLE slots (
     price INTEGER NOT NULL,
     max_people INTEGER DEFAULT 1,
     instructor_id INTEGER REFERENCES instructors(id) ON DELETE SET NULL,
+    walk_type_id INTEGER REFERENCES walk_types(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -57,6 +69,7 @@ CREATE TABLE weather_cache (
 
 -- Create indexes
 CREATE INDEX idx_slots_date ON slots(date);
+CREATE INDEX idx_walk_types_instructor_id ON walk_types(instructor_id);
 CREATE INDEX idx_bookings_slot_id ON bookings(slot_id);
 CREATE INDEX idx_bookings_status ON bookings(status);
 CREATE INDEX idx_weather_cache_date ON weather_cache(date);
