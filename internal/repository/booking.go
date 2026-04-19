@@ -18,14 +18,19 @@ func NewBookingRepository(db *pgxpool.Pool) *BookingRepository {
 
 func (r *BookingRepository) Create(ctx context.Context, booking *models.Booking) error {
 	query := `
-		INSERT INTO bookings (slot_id, client_name, client_phone, client_email, people_count, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO bookings (slot_id, user_id, client_name, client_phone, client_email, people_count, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at
 	`
+	var userID interface{}
+	if booking.UserID > 0 {
+		userID = booking.UserID
+	}
 	return r.db.QueryRow(
 		ctx,
 		query,
 		booking.SlotID,
+		userID,
 		booking.ClientName,
 		booking.ClientPhone,
 		booking.ClientEmail,
@@ -35,13 +40,14 @@ func (r *BookingRepository) Create(ctx context.Context, booking *models.Booking)
 }
 
 func (r *BookingRepository) GetByID(ctx context.Context, id int) (*models.Booking, error) {
-	query := `SELECT id, slot_id, client_name, client_phone, client_email, people_count, status, created_at, updated_at
+	query := `SELECT id, slot_id, COALESCE(user_id, 0), client_name, client_phone, client_email, people_count, status, created_at, updated_at
 			  FROM bookings WHERE id = $1`
 
 	booking := &models.Booking{}
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&booking.ID,
 		&booking.SlotID,
+		&booking.UserID,
 		&booking.ClientName,
 		&booking.ClientPhone,
 		&booking.ClientEmail,
@@ -57,7 +63,7 @@ func (r *BookingRepository) GetByID(ctx context.Context, id int) (*models.Bookin
 }
 
 func (r *BookingRepository) GetByStatus(ctx context.Context, status string) ([]*models.Booking, error) {
-	query := `SELECT id, slot_id, client_name, client_phone, client_email, people_count, status, created_at, updated_at
+	query := `SELECT id, slot_id, COALESCE(user_id, 0), client_name, client_phone, client_email, people_count, status, created_at, updated_at
 			  FROM bookings WHERE status = $1 ORDER BY created_at DESC`
 
 	rows, err := r.db.Query(ctx, query, status)
@@ -72,6 +78,7 @@ func (r *BookingRepository) GetByStatus(ctx context.Context, status string) ([]*
 		err := rows.Scan(
 			&booking.ID,
 			&booking.SlotID,
+			&booking.UserID,
 			&booking.ClientName,
 			&booking.ClientPhone,
 			&booking.ClientEmail,
@@ -89,7 +96,7 @@ func (r *BookingRepository) GetByStatus(ctx context.Context, status string) ([]*
 }
 
 func (r *BookingRepository) GetAll(ctx context.Context) ([]*models.Booking, error) {
-	query := `SELECT id, slot_id, client_name, client_phone, client_email, people_count, status, created_at, updated_at
+	query := `SELECT id, slot_id, COALESCE(user_id, 0), client_name, client_phone, client_email, people_count, status, created_at, updated_at
 			  FROM bookings ORDER BY created_at DESC`
 
 	rows, err := r.db.Query(ctx, query)
@@ -104,6 +111,7 @@ func (r *BookingRepository) GetAll(ctx context.Context) ([]*models.Booking, erro
 		err := rows.Scan(
 			&booking.ID,
 			&booking.SlotID,
+			&booking.UserID,
 			&booking.ClientName,
 			&booking.ClientPhone,
 			&booking.ClientEmail,
@@ -128,7 +136,7 @@ func (r *BookingRepository) UpdateStatus(ctx context.Context, id int, status str
 
 func (r *BookingRepository) GetByDateRange(ctx context.Context, start, end time.Time) ([]*models.Booking, error) {
 	query := `
-		SELECT b.id, b.slot_id, b.client_name, b.client_phone, b.client_email, b.people_count, b.status, b.created_at, b.updated_at
+		SELECT b.id, b.slot_id, COALESCE(b.user_id, 0), b.client_name, b.client_phone, b.client_email, b.people_count, b.status, b.created_at, b.updated_at
 		FROM bookings b
 		JOIN slots s ON b.slot_id = s.id
 		WHERE s.date BETWEEN $1 AND $2
@@ -147,6 +155,7 @@ func (r *BookingRepository) GetByDateRange(ctx context.Context, start, end time.
 		err := rows.Scan(
 			&booking.ID,
 			&booking.SlotID,
+			&booking.UserID,
 			&booking.ClientName,
 			&booking.ClientPhone,
 			&booking.ClientEmail,
@@ -159,6 +168,25 @@ func (r *BookingRepository) GetByDateRange(ctx context.Context, start, end time.
 			return nil, err
 		}
 		bookings = append(bookings, booking)
+	}
+	return bookings, nil
+}
+
+func (r *BookingRepository) GetByUserID(ctx context.Context, userID int) ([]*models.Booking, error) {
+	query := `SELECT id, slot_id, COALESCE(user_id, 0), client_name, client_phone, client_email, people_count, status, created_at, updated_at
+			  FROM bookings WHERE user_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var bookings []*models.Booking
+	for rows.Next() {
+		b := &models.Booking{}
+		if err := rows.Scan(&b.ID, &b.SlotID, &b.UserID, &b.ClientName, &b.ClientPhone, &b.ClientEmail, &b.PeopleCount, &b.Status, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, err
+		}
+		bookings = append(bookings, b)
 	}
 	return bookings, nil
 }

@@ -1,0 +1,136 @@
+{{define "title"}}Типы прогулок - SUP Anapa{{end}}
+
+{{define "content"}}
+<div class="mb-8 flex justify-between items-center">
+    <h1 class="text-4xl font-bold text-gray-800">Типы прогулок</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <h2 class="text-2xl font-semibold mb-4">Добавить тип прогулки</h2>
+    <form id="walk-type-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Инструктор</label>
+            <select name="instructor_id" id="walk-type-instructor" required class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Название</label>
+            <input type="text" name="name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Например: Романтический закат">
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Цена (₽)</label>
+            <input type="number" name="price" min="1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Макс. человек</label>
+            <input type="number" name="max_people" min="1" value="1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div class="md:col-span-2">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Создать тип прогулки</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div class="px-6 py-4 border-b">
+        <h2 class="text-2xl font-semibold">Список типов прогулок</h2>
+    </div>
+    <div id="walk-types-list" class="p-6 space-y-6">
+        <p class="text-gray-500">Загрузка...</p>
+    </div>
+</div>
+
+<script>
+let instructorsData = [];
+
+function renderWalkTypes() {
+    const root = document.getElementById('walk-types-list');
+    root.innerHTML = '';
+
+    if (!instructorsData.length) {
+        root.innerHTML = '<p class="text-gray-500">Инструкторы пока не добавлены</p>';
+        return;
+    }
+
+    let hasWalkTypes = false;
+    instructorsData.forEach(function(instructor) {
+        const block = document.createElement('div');
+        block.className = 'border rounded-lg p-4';
+
+        let html = '<h3 class="text-lg font-semibold mb-3">' + instructor.Name + '</h3>';
+        if (instructor.WalkTypes && instructor.WalkTypes.length > 0) {
+            hasWalkTypes = true;
+            instructor.WalkTypes.forEach(function(wt) {
+                html += '<div class="flex items-center justify-between border rounded p-3 mb-2">' +
+                    '<div><p class="font-medium">' + wt.Name + '</p><p class="text-sm text-gray-600">' + wt.Price + ' ₽ • до ' + wt.MaxPeople + ' чел.</p></div>' +
+                    '<button class="text-red-600 text-sm" onclick="deleteWalkType(' + wt.ID + ', ' + instructor.ID + ')">Удалить</button>' +
+                    '</div>';
+            });
+        } else {
+            html += '<p class="text-sm text-gray-500">Типы прогулок не добавлены</p>';
+        }
+
+        block.innerHTML = html;
+        root.appendChild(block);
+    });
+
+    if (!hasWalkTypes) {
+        const note = document.createElement('p');
+        note.className = 'text-gray-500';
+        note.textContent = 'Пока нет ни одного типа прогулки.';
+        root.prepend(note);
+    }
+}
+
+function loadInstructorsWithWalkTypes() {
+    fetch('/admin/api/instructors')
+        .then(res => res.json())
+        .then(function(data) {
+            instructorsData = data;
+
+            const select = document.getElementById('walk-type-instructor');
+            select.innerHTML = '';
+            if (!data.length) {
+                select.innerHTML = '<option value="">Нет инструкторов</option>';
+                renderWalkTypes();
+                return;
+            }
+
+            data.forEach(function(instructor) {
+                const option = document.createElement('option');
+                option.value = instructor.ID;
+                option.textContent = instructor.Name;
+                select.appendChild(option);
+            });
+
+            renderWalkTypes();
+        });
+}
+
+function deleteWalkType(walkTypeID, instructorID) {
+    fetch('/admin/api/walk-types/' + walkTypeID + '?instructor_id=' + instructorID, { method: 'DELETE', headers: { 'HX-Request': 'true' } })
+        .then(function() { loadInstructorsWithWalkTypes(); });
+}
+
+document.getElementById('walk-type-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const body = new URLSearchParams({
+        instructor_id: formData.get('instructor_id'),
+        name: formData.get('name'),
+        price: formData.get('price'),
+        max_people: formData.get('max_people')
+    });
+
+    fetch('/admin/api/walk-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'HX-Request': 'true' },
+        body: body.toString()
+    }).then(function() {
+        e.target.reset();
+        loadInstructorsWithWalkTypes();
+    });
+});
+
+loadInstructorsWithWalkTypes();
+</script>
+{{end}}

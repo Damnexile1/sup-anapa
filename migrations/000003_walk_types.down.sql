@@ -1,0 +1,2 @@
+ALTER TABLE slots DROP COLUMN IF EXISTS walk_type_id;
+DROP TABLE IF EXISTS walk_types;
